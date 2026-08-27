@@ -18,6 +18,7 @@ import {
   handleConfirmAddCallback,
   handleMenuBack,
   handleMainMenuCallback,
+  handleOrderItemCallback,
 } from "./handlers/menu";
 import {
   handleCartText,
@@ -352,6 +353,7 @@ bot.on("text", async (ctx) => {
 // ============================================================
 
 // Menu callbacks
+bot.action(/^order_item_/, handleOrderItemCallback);
 bot.action(/^cat_(\d+)$/, handleCategoryCallback);
 bot.action(/^prod_(\d+)$/, handleProductCallback);
 bot.action(/^add_cart_(\d+)$/, handleAddCartCallback);

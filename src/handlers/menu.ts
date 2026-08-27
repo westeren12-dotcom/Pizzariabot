@@ -1,4 +1,6 @@
 import { BotContext } from "../types";
+import { Markup } from "telegraf";
+import { InlineKeyboardButton } from "telegraf/types";
 import { categoryListKeyboard, productListKeyboard, productDetailKeyboard, variantSelectionKeyboard, quantityKeyboard, mainMenuKeyboard } from "../keyboards";
 import { isAdmin } from "../middlewares";
 import * as db from "../database";
@@ -6,27 +8,67 @@ import { getCallbackData } from "../utils/helpers";
 import * as path from "path";
 import * as fs from "fs";
 
+// All menu items with prices
+const ALL_MENU_ITEMS = [
+  { name: "TANDIR LAVASH", price: "35.000" },
+  { name: "LAVASH", price: "32.000" },
+  { name: "LAVASH KATTA", price: "35.000" },
+  { name: "LAVASH PISHLOQ", price: "35.000" },
+  { name: "NON BURGER", price: "35.000" },
+  { name: "GAMBURGER", price: "30.000" },
+  { name: "CHEESEBURGER", price: "35.000" },
+  { name: "HOT DOG", price: "15.000" },
+  { name: "HOT DOG KANADA", price: "18.000" },
+  { name: "BIG HOT DOG", price: "22.000" },
+  { name: "FREE (kartoshka) 150g", price: "20.000" },
+  { name: "FREE (kartoshka) 150g MAXSUS", price: "25.000" },
+  { name: "PEPPERONI", price: "50.000 / 70.000" },
+  { name: "MARGARITA", price: "40.000 / 60.000" },
+  { name: "MIKS", price: "70.000 / 95.000" },
+  { name: "GO'SHTLI", price: "60.000 / 80.000" },
+  { name: "4 FASL", price: "60.000 / 90.000" },
+  { name: "TOVUQLI", price: "60.000 / 80.000" },
+  { name: "RANCH", price: "50.000 / 75.000" },
+];
+
+function menuButtonsKeyboard() {
+  const buttons: InlineKeyboardButton[][] = ALL_MENU_ITEMS.map((item) => [
+    { text: `${item.name} — ${item.price}`, callback_data: `order_item_${item.name}` },
+  ]);
+  buttons.push([{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }]);
+  return Markup.inlineKeyboard(buttons);
+}
+
 export async function handleMenuText(ctx: BotContext) {
   if (!ctx.from) return;
 
-  const categories = await db.getActiveCategories();
   const menuImagePath = path.join(process.cwd(), "assets", "menu.png");
 
   if (fs.existsSync(menuImagePath)) {
     await ctx.replyWithPhoto(
       { source: menuImagePath },
       {
-        caption: "Menyudan birini tanlang yoki mahsulot nomini kiriting:",
-        ...categoryListKeyboard(categories),
+        caption: "Menyudan birini tanlang:",
+        ...menuButtonsKeyboard(),
       }
     );
   } else {
-    const text = `Menyudan birini tanlang yoki mahsulot nomini kiriting:`;
-    await ctx.reply(text, {
-      parse_mode: "Markdown",
-      ...categoryListKeyboard(categories),
-    });
+    await ctx.reply("Menyudan birini tanlang:", menuButtonsKeyboard());
   }
+}
+
+export async function handleOrderItemCallback(ctx: BotContext) {
+  const data = getCallbackData(ctx);
+  if (!data || !ctx.from) return;
+
+  const itemName = data.replace("order_item_", "");
+  const item = ALL_MENU_ITEMS.find((i) => i.name === itemName);
+
+  ctx.session.orderItem = item ? `${item.name} — ${item.price} so'm` : itemName;
+  ctx.session.state = "awaiting_order_name";
+
+  await ctx.answerCbQuery();
+  await ctx.reply(`${itemName} tanlandi!\n\nIsmingizni kiriting:`);
 }
 
 export async function handleCategoryCallback(ctx: BotContext) {
@@ -71,7 +113,6 @@ export async function handleProductCallback(ctx: BotContext) {
     text += `\n  • ${variant.name} — ${variant.price.toLocaleString("uz-UZ")} so'm`;
   }
 
-  // Start order flow with this product
   ctx.session.orderItem = `${product.name} — ${product.variants[0]?.name || "Standart"} ${product.variants[0]?.price?.toLocaleString("uz-UZ") || ""} so'm`;
   ctx.session.state = "awaiting_order_name";
 
