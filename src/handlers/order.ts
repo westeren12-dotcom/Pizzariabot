@@ -148,7 +148,7 @@ export async function handlePaymentCallback(ctx: BotContext) {
 
   const items = await db.getCartItems(ctx.from.id);
   const deliveryPriceSetting = await db.getSetting("delivery_price");
-  const deliveryPrice = parseInt(deliveryPriceSetting || "10000");
+  const deliveryPrice = parseInt(deliveryPriceSetting || "0");
 
   let itemsTotal = 0;
   let summary = `📦 *Buyurtma xulosasi*\n`;
@@ -163,7 +163,7 @@ export async function handlePaymentCallback(ctx: BotContext) {
   const grandTotal = itemsTotal + deliveryPrice;
 
   summary += `\n\n💰 Mahsulotlar: ${itemsTotal.toLocaleString("uz-UZ")} so'm`;
-  summary += `\n🚚 Yetkazib berish: ${deliveryPrice.toLocaleString("uz-UZ")} so'm`;
+  summary += `\n🚚 Yetkazib berish: ${deliveryPrice > 0 ? deliveryPrice.toLocaleString("uz-UZ") + " so'm" : "Bepul"}`;
   summary += `\n💰 *Jami: ${grandTotal.toLocaleString("uz-UZ")} so'm*`;
   summary += `\n\n📍 Manzil: ${ctx.session.address || "Ko'rsatilmagan"}`;
   summary += `\n📞 Telefon: +${ctx.session.phone || "Ko'rsatilmagan"}`;
@@ -195,7 +195,7 @@ export async function handleConfirmOrderCallback(ctx: BotContext) {
   }
 
   const deliveryPriceSetting = await db.getSetting("delivery_price");
-  const deliveryPrice = parseInt(deliveryPriceSetting || "10000");
+  const deliveryPrice = parseInt(deliveryPriceSetting || "0");
 
   let itemsTotal = 0;
   for (const item of items) {
@@ -245,7 +245,7 @@ export async function handleConfirmOrderCallback(ctx: BotContext) {
     await notifyAdmins(ctx, order);
   } catch (error) {
     console.error("Order creation error:", error);
-    await ctx.reply("❌ Buyurtma yaratishda xatolik yuz berdi. Qaytadan urinib ko'ring.", {
+    await ctx.reply("❌ Buyurtma yaratishda xatolik yuz berdi.", {
       ...mainMenuKeyboard(),
     });
   }
@@ -277,10 +277,24 @@ export async function handleOrderBack(ctx: BotContext) {
 // Notify admins about new order
 // ============================================================
 async function notifyAdmins(ctx: BotContext, order: any) {
-  const adminIds = (process.env.ADMIN_IDS || "")
+  // Get admin users from database by username
+  const adminUsers = await db.getAdminUsers();
+  const adminIds = adminUsers.map((u) => Number(u.telegramId));
+
+  // Also try ADMIN_IDS env var
+  const envAdminIds = (process.env.ADMIN_IDS || "")
     .split(",")
     .map((id) => parseInt(id.trim()))
     .filter(Boolean);
+
+  const allAdminIds = [...new Set([...adminIds, ...envAdminIds])];
+
+  console.log("Admin IDs for notification:", allAdminIds);
+
+  if (allAdminIds.length === 0) {
+    console.log("No admin users found for notification!");
+    return;
+  }
 
   let itemsText = "";
   for (const item of order.items) {
@@ -297,11 +311,12 @@ ${itemsText}
 📍 Manzil: ${order.address}
 💳 To'lov: ${PAYMENT_LABELS[order.paymentType] || order.paymentType}`;
 
-  for (const adminId of adminIds) {
+  for (const adminId of allAdminIds) {
     try {
       await ctx.telegram.sendMessage(adminId, adminMessage, {
         parse_mode: "Markdown",
       });
+      console.log(`Admin notified: ${adminId}`);
     } catch (err) {
       console.error(`Failed to notify admin ${adminId}:`, err);
     }

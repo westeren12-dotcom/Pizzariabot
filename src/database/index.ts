@@ -406,6 +406,21 @@ export async function getSetting(key: string) {
   return setting?.value || null;
 }
 
+export async function getAdminUsers() {
+  const adminUsernames = (process.env.ADMIN_USERNAMES || "")
+    .split(",")
+    .map((u) => u.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (adminUsernames.length === 0) return [];
+
+  return prisma.user.findMany({
+    where: {
+      username: { in: adminUsernames },
+    },
+  });
+}
+
 export async function setSetting(key: string, value: string) {
   return prisma.botSettings.upsert({
     where: { key },

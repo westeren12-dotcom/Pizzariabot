@@ -389,32 +389,27 @@ bot.action("confirm_order", async (ctx) => {
     return ctx.answerCbQuery("Buyurtma topilmadi!");
   }
 
-  // Save order to database
   const orderItem = ctx.session.orderItem || "";
   const orderName = ctx.session.orderName || "";
   const orderDistrict = ctx.session.orderDistrict || "";
   const orderPhone = ctx.session.orderPhone || "";
 
   try {
-    // Get or create user
     await db.getOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
 
-    // Create a simple order record
     const orderNumber = await db.getNextOrderNumber();
 
-    // We'll store the order info in the database
-    // For now, create a minimal order
-    const cart = await db.getOrCreateCart(ctx.from.id);
     const cartItems = await db.getCartItems(ctx.from.id);
 
+    let totalPrice = 0;
+    let order;
+
     if (cartItems.length > 0) {
-      // Use existing cart items
-      let totalPrice = 0;
       for (const item of cartItems) {
         totalPrice += item.variant.price * item.quantity;
       }
 
-      const order = await db.createOrder({
+      order = await db.createOrder({
         userId: ctx.from.id,
         phone: orderPhone,
         address: orderDistrict,
@@ -428,43 +423,47 @@ bot.action("confirm_order", async (ctx) => {
           price: item.variant.price,
         })),
       });
+    } else {
+      // Text-based order without cart
+      order = {
+        orderNumber,
+        totalPrice: 0,
+        items: [],
+        user: { firstName: ctx.from.first_name, lastName: ctx.from.last_name },
+      };
+    }
 
-      // Notify admins
-      const adminIds = (process.env.ADMIN_IDS || "")
-        .split(",")
-        .map((id) => parseInt(id.trim()))
-        .filter(Boolean);
+    // Notify admins from database
+    const adminUsers = await db.getAdminUsers();
+    const adminIds = adminUsers.map((u) => Number(u.telegramId));
 
-      let itemsText = "";
+    const envAdminIds = (process.env.ADMIN_IDS || "")
+      .split(",")
+      .map((id) => parseInt(id.trim()))
+      .filter(Boolean);
+
+    const allAdminIds = [...new Set([...adminIds, ...envAdminIds])];
+
+    console.log("Simple order - Admin IDs:", allAdminIds);
+
+    let itemsText = "";
+    if (order.items && order.items.length > 0) {
       for (const item of order.items) {
-        const variantInfo = item.variant.name !== "Standart" ? ` — ${item.variant.name}` : "";
-        itemsText += `  ${item.product.emoji || "🍽"} ${item.product.name}${variantInfo} × ${item.quantity}\n`;
-      }
-
-      const adminMessage = `📦 YANGI BUYURTMA #${order.orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n${itemsText}\n💰 Jami: ${order.totalPrice.toLocaleString("uz-UZ")} so'm\n💳 To'lov: Naqd`;
-
-      for (const adminId of adminIds) {
-        try {
-          await ctx.telegram.sendMessage(adminId, adminMessage);
-        } catch (err) {
-          console.error(`Failed to notify admin ${adminId}:`, err);
-        }
+        const variantInfo = item.variant?.name !== "Standart" ? ` — ${item.variant?.name}` : "";
+        itemsText += `  ${item.product?.emoji || "🍽"} ${item.product?.name || ""}${variantInfo} × ${item.quantity}\n`;
       }
     } else {
-      // No cart items, just save the text order
-      const adminIds = (process.env.ADMIN_IDS || "")
-        .split(",")
-        .map((id) => parseInt(id.trim()))
-        .filter(Boolean);
+      itemsText = `  🍕 ${orderItem}\n`;
+    }
 
-      const adminMessage = `📦 YANGI BUYURTMA #${orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n🍕 Mahsulot: ${orderItem}\n💳 To'lov: Naqd`;
+    const adminMessage = `📦 YANGI BUYURTMA #${order.orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n${itemsText}\n💰 Jami: ${totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") + " so'm" : "Narx ko'rsatilmagan"}\n💳 To'lov: Naqd`;
 
-      for (const adminId of adminIds) {
-        try {
-          await ctx.telegram.sendMessage(adminId, adminMessage);
-        } catch (err) {
-          console.error(`Failed to notify admin ${adminId}:`, err);
-        }
+    for (const adminId of allAdminIds) {
+      try {
+        await ctx.telegram.sendMessage(adminId, adminMessage);
+        console.log(`Admin notified: ${adminId}`);
+      } catch (err) {
+        console.error(`Failed to notify admin ${adminId}:`, err);
       }
     }
   } catch (error) {
