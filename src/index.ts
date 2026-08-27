@@ -227,49 +227,49 @@ bot.on("text", async (ctx) => {
   }
 
   // Main menu text handlers
-  switch (text) {
-    case "Menyu":
-      return handleMenuText(ctx);
-    case "Savatim":
-      return handleCartText(ctx);
-    case "Mening buyurtmalarim":
-      return handleMyOrdersText(ctx);
-    case "Yetkazib berish":
-      return handleDeliveryText(ctx);
-    case "Biz haqimizda":
-      return handleAboutText(ctx);
-    case "Bog'lanish":
-      return handleContactText(ctx);
-    case "Asosiy menyu":
-      ctx.session.state = undefined;
-      return handleStart(ctx);
-    // Admin text handlers
-    case "Bugungi statistika":
-      if (isAdmin(ctx.from.id)) return handleStats(ctx);
-      break;
-    case "Buyurtmalar":
-      if (isAdmin(ctx.from.id)) return handleAdminOrders(ctx);
-      break;
-    case "Faol buyurtmalar":
-      if (isAdmin(ctx.from.id)) return handleAdminActiveOrders(ctx);
-      break;
-    case "Mijozlar":
-      if (isAdmin(ctx.from.id)) return handleAdminCustomers(ctx);
-      break;
-    case "Menyuni boshqarish":
-      if (isAdmin(ctx.from.id)) return handleAdminMenuMgmt(ctx);
-      break;
-    case "Sozlamalar":
-      if (isAdmin(ctx.from.id)) return handleAdminSettings(ctx);
-      break;
-    case "Mahsulot qo'shish":
-      if (isAdmin(ctx.from.id)) return handleAdminAddProduct(ctx);
-      break;
-    default:
-      if (ctx.session.state === "awaiting_location" && text === "Lokatsiyasiz davom etish") {
-        return handleSkipLocation(ctx);
-      }
-      break;
+  if (text.includes("Menyu") && !text.includes("boshqarish")) {
+    return handleMenuText(ctx);
+  }
+  if (text.includes("Savatim")) {
+    return handleCartText(ctx);
+  }
+  if (text.includes("buyurtmalarim")) {
+    return handleMyOrdersText(ctx);
+  }
+  if (text.includes("Yetkazib berish")) {
+    return handleDeliveryText(ctx);
+  }
+  if (text.includes("Biz haqimizda")) {
+    return handleAboutText(ctx);
+  }
+  if (text.includes("Bog'lanish")) {
+    return handleContactText(ctx);
+  }
+  if (text.includes("Asosiy menyu")) {
+    ctx.session.state = undefined;
+    return handleStart(ctx);
+  }
+  // Admin text handlers
+  if (text.includes("Bugungi statistika")) {
+    if (isAdmin(ctx.from.id)) return handleStats(ctx);
+  }
+  if (text.includes("Buyurtmalar") && !text.includes("Faol")) {
+    if (isAdmin(ctx.from.id)) return handleAdminOrders(ctx);
+  }
+  if (text.includes("Faol buyurtmalar")) {
+    if (isAdmin(ctx.from.id)) return handleAdminActiveOrders(ctx);
+  }
+  if (text.includes("Mijozlar")) {
+    if (isAdmin(ctx.from.id)) return handleAdminCustomers(ctx);
+  }
+  if (text.includes("Menyuni boshqarish")) {
+    if (isAdmin(ctx.from.id)) return handleAdminMenuMgmt(ctx);
+  }
+  if (text.includes("Sozlamalar")) {
+    if (isAdmin(ctx.from.id)) return handleAdminSettings(ctx);
+  }
+  if (text.includes("Mahsulot qo'shish")) {
+    if (isAdmin(ctx.from.id)) return handleAdminAddProduct(ctx);
   }
 });
 
