@@ -173,8 +173,8 @@ async function main() {
 
   // Seed default settings
   const defaultSettings = [
-    { key: "delivery_price", value: "10000" },
-    { key: "about_address", value: "Toshkent shahri, Pizza Ria" },
+    { key: "delivery_price", value: "0" },
+    { key: "about_address", value: "Chinobod" },
     { key: "about_phone", value: "+998943941919" },
     { key: "about_instagram", value: "pizza_ria_1" },
     { key: "about_work_hours", value: "09:00 - 03:00" },

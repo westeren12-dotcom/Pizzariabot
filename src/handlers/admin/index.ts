@@ -730,3 +730,52 @@ export async function handleAdminMenuMgmtCallback(ctx: BotContext) {
     });
   }
 }
+
+// ============================================================
+// MONTHLY REPORT
+// ============================================================
+export async function handleAdminReport(ctx: BotContext) {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+  const orders = await db.getAllOrders();
+  const monthOrders = orders.filter((o) => {
+    const d = new Date(o.createdAt);
+    return d >= startOfMonth && d <= endOfMonth;
+  });
+
+  const delivered = monthOrders.filter((o) => o.status === "delivered");
+  const cancelled = monthOrders.filter((o) => o.status === "cancelled");
+  const totalRevenue = delivered.reduce((sum, o) => sum + o.totalPrice, 0);
+
+  let text = `OYLIK HISOBOT\n`;
+  text += `Sana: ${now.toLocaleString("uz-UZ", { month: "long", year: "numeric" })}\n\n`;
+  text += `Jami buyurtmalar: ${monthOrders.length} ta\n`;
+  text += `Yetkazilgan: ${delivered.length} ta\n`;
+  text += `Bekor qilingan: ${cancelled.length} ta\n`;
+  text += `Jami daromad: ${totalRevenue.toLocaleString("uz-UZ")} so'm\n`;
+
+  const productCounts: Record<string, number> = {};
+  for (const order of delivered) {
+    const fullOrder = await db.getOrderById(order.id);
+    if (fullOrder) {
+      for (const item of fullOrder.items) {
+        const name = item.product.name;
+        productCounts[name] = (productCounts[name] || 0) + item.quantity;
+      }
+    }
+  }
+
+  const sorted = Object.entries(productCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (sorted.length > 0) {
+    text += `\nENG KOP SOTILGAN:\n`;
+    sorted.forEach(([name, count], i) => {
+      text += `${i + 1}. ${name} — ${count} ta\n`;
+    });
+  }
+
+  await ctx.reply(text);
+}

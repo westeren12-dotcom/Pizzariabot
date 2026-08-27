@@ -3,18 +3,30 @@ import { categoryListKeyboard, productListKeyboard, productDetailKeyboard, varia
 import { isAdmin } from "../middlewares";
 import * as db from "../database";
 import { getCallbackData } from "../utils/helpers";
+import * as path from "path";
+import * as fs from "fs";
 
 export async function handleMenuText(ctx: BotContext) {
   if (!ctx.from) return;
 
   const categories = await db.getActiveCategories();
+  const menuImagePath = path.join(process.cwd(), "assets", "menu.png");
 
-  const text = `🍕 *Menyu*\n\nKategoriyalardan birini tanlang:`;
-
-  await ctx.reply(text, {
-    parse_mode: "Markdown",
-    ...categoryListKeyboard(categories),
-  });
+  if (fs.existsSync(menuImagePath)) {
+    await ctx.replyWithPhoto(
+      { source: menuImagePath },
+      {
+        caption: "Menyudan birini tanlang:",
+        ...categoryListKeyboard(categories),
+      }
+    );
+  } else {
+    const text = `🍕 *Menyu*\n\nKategoriyalardan birini tanlang:`;
+    await ctx.reply(text, {
+      parse_mode: "Markdown",
+      ...categoryListKeyboard(categories),
+    });
+  }
 }
 
 export async function handleCategoryCallback(ctx: BotContext) {

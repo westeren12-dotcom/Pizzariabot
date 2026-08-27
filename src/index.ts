@@ -70,6 +70,7 @@ import {
   handleAdminSettingText,
   handleAdminPanelCallback,
   handleAdminMenuMgmtCallback,
+  handleAdminReport,
 } from "./handlers/admin";
 
 // ============================================================
@@ -77,7 +78,7 @@ import {
 // ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
-  console.error("❌ BOT_TOKEN is not set in .env file!");
+  console.error("BOT_TOKEN is not set in .env file!");
   process.exit(1);
 }
 
@@ -99,7 +100,7 @@ bot.use(autoRegisterMiddleware);
 // ============================================================
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
-  ctx.reply("❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.").catch(() => {});
+  ctx.reply("Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.").catch(() => {});
 });
 
 // ============================================================
@@ -107,8 +108,68 @@ bot.catch((err, ctx) => {
 // ============================================================
 bot.start(handleStart);
 
-// /admin COMMAND
+// ============================================================
+// ADMIN COMMANDS
+// ============================================================
 bot.command("admin", handleAdmin);
+
+bot.command("bugungifoyda", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleStats(ctx);
+});
+
+bot.command("bugunigibuyurtmalar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminActiveOrders(ctx);
+});
+
+bot.command("statistika", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleStats(ctx);
+});
+
+bot.command("hisobot", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminReport(ctx);
+});
+
+bot.command("menyuboshqarish", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminMenuMgmt(ctx);
+});
+
+bot.command("narxlar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminSettings(ctx);
+});
+
+bot.command("buyurtmalar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminOrders(ctx);
+});
+
+bot.command("faolbuyurtmalar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminActiveOrders(ctx);
+});
+
+bot.command("mijozlar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminCustomers(ctx);
+});
+
+bot.command("broadcast", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  ctx.session.adminAction = "broadcast";
+  await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:", {
+    parse_mode: "Markdown",
+  });
+});
+
+bot.command("sozlamalar", async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  await handleAdminSettings(ctx);
+});
 
 // ============================================================
 // TEXT MESSAGE HANDLERS (ReplyKeyboard)
@@ -122,6 +183,27 @@ bot.on("text", async (ctx) => {
     if (await handleAdminEditText(ctx)) return;
     if (await handleAdminAddCategoryText(ctx)) return;
     if (await handleAdminSettingText(ctx)) return;
+
+    // Broadcast handler
+    if (ctx.session.adminAction === "broadcast") {
+      ctx.session.adminAction = undefined;
+      const { getAllUsers } = await import("./database");
+      const users = await getAllUsers();
+      let sent = 0;
+      let failed = 0;
+
+      for (const user of users) {
+        try {
+          await ctx.telegram.sendMessage(Number(user.telegramId), text);
+          sent++;
+        } catch {
+          failed++;
+        }
+      }
+
+      await ctx.reply(`Xabar yuborildi!\nYuborilgan: ${sent}\nXatolik: ${failed}`);
+      return;
+    }
   }
 
   // Check if user is in order flow
@@ -133,79 +215,58 @@ bot.on("text", async (ctx) => {
       return handleAddress(ctx);
     }
     if (ctx.session.state === "awaiting_location") {
-      if (text === "⬅️ Orqaga") {
+      if (text === "Orqaga") {
         ctx.session.state = "awaiting_address";
-        return ctx.reply("📍 Manzilingizni kiriting:");
+        return ctx.reply("Manzilingizni kiriting:");
       }
-      if (text === "⏩ Lokatsiyasiz davom etish") {
+      if (text === "Lokatsiyasiz davom etish") {
         return handleSkipLocation(ctx);
       }
-      // If they type something instead of sending location
-      return ctx.reply("🗺 Iltimos, Telegram lokatsiya tugmasini bosing:");
+      return ctx.reply("Iltimos, Telegram lokatsiya tugmasini bosing:");
     }
   }
 
   // Main menu text handlers
   switch (text) {
-    case "🍕 Menyu":
+    case "Menyu":
       return handleMenuText(ctx);
-    case "🛒 Savatim":
+    case "Savatim":
       return handleCartText(ctx);
-    case "📦 Mening buyurtmalarim":
+    case "Mening buyurtmalarim":
       return handleMyOrdersText(ctx);
-    case "📍 Yetkazib berish":
+    case "Yetkazib berish":
       return handleDeliveryText(ctx);
-    case "ℹ️ Biz haqimizda":
+    case "Biz haqimizda":
       return handleAboutText(ctx);
-    case "☎️ Bog'lanish":
+    case "Bog'lanish":
       return handleContactText(ctx);
-    case "🏠 Asosiy menyu":
+    case "Asosiy menyu":
       ctx.session.state = undefined;
       return handleStart(ctx);
-    case "📦 Buyurtmalar":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminOrders(ctx);
-      }
+    // Admin text handlers
+    case "Bugungi statistika":
+      if (isAdmin(ctx.from.id)) return handleStats(ctx);
       break;
-    case "📊 Bugungi statistika":
-      if (isAdmin(ctx.from.id)) {
-        return handleStats(ctx);
-      }
+    case "Buyurtmalar":
+      if (isAdmin(ctx.from.id)) return handleAdminOrders(ctx);
       break;
-    case "🟢 Faol buyurtmalar":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminActiveOrders(ctx);
-      }
+    case "Faol buyurtmalar":
+      if (isAdmin(ctx.from.id)) return handleAdminActiveOrders(ctx);
       break;
-    case "👥 Mijozlar":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminCustomers(ctx);
-      }
+    case "Mijozlar":
+      if (isAdmin(ctx.from.id)) return handleAdminCustomers(ctx);
       break;
-    case "🍕 Menyuni boshqarish":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminMenuMgmt(ctx);
-      }
+    case "Menyuni boshqarish":
+      if (isAdmin(ctx.from.id)) return handleAdminMenuMgmt(ctx);
       break;
-    case "⚙️ Sozlamalar":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminSettings(ctx);
-      }
+    case "Sozlamalar":
+      if (isAdmin(ctx.from.id)) return handleAdminSettings(ctx);
       break;
-    case "➕ Mahsulot qo'shish":
-      if (isAdmin(ctx.from.id)) {
-        return handleAdminAddProduct(ctx);
-      }
-      break;
-    case "➕ Mahsulot qo'shish" as any:
-      // User adding more to cart from cart view
-      break;
-    case "📝 Buyurtma berish":
-      // User is in cart view wanting to order
+    case "Mahsulot qo'shish":
+      if (isAdmin(ctx.from.id)) return handleAdminAddProduct(ctx);
       break;
     default:
-      // Handle "skip location" text in order flow
-      if (ctx.session.state === "awaiting_location" && text === "⏩ Lokatsiyasiz davom etish") {
+      if (ctx.session.state === "awaiting_location" && text === "Lokatsiyasiz davom etish") {
         return handleSkipLocation(ctx);
       }
       break;
@@ -281,23 +342,20 @@ bot.action(/^admin_set_/, handleAdminSettingCallback);
 // ============================================================
 async function startBot() {
   try {
-    // Initialize database
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
     await prisma.$connect();
-    console.log("✅ Database connected!");
+    console.log("Database connected!");
 
-    // Launch bot
     await bot.launch();
-    console.log("🤖 Pizza Ria bot is running!");
+    console.log("Pizza Ria bot is running!");
 
-    // Graceful stop
     process.once("SIGINT", () => bot.stop("SIGINT"));
     process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
     await prisma.$disconnect();
   } catch (error) {
-    console.error("❌ Failed to start bot:", error);
+    console.error("Failed to start bot:", error);
     process.exit(1);
   }
 }
