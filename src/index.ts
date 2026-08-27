@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 import { Telegraf, session } from "telegraf";
 import { BotContext } from "./types";
 import { autoRegisterMiddleware, isAdmin } from "./middlewares";
