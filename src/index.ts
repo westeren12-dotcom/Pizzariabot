@@ -127,58 +127,58 @@ bot.start(handleStart);
 bot.command("admin", handleAdmin);
 
 bot.command("bugungifoyda", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleStats(ctx);
 });
 
 bot.command("bugunigibuyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminActiveOrders(ctx);
 });
 
 bot.command("statistika", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleStats(ctx);
 });
 
 bot.command("hisobot", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminReport(ctx);
 });
 
 bot.command("menyuboshqarish", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminMenuMgmt(ctx);
 });
 
 bot.command("narxlar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminSettings(ctx);
 });
 
 bot.command("buyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminOrders(ctx);
 });
 
 bot.command("faolbuyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminActiveOrders(ctx);
 });
 
 bot.command("mijozlar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminCustomers(ctx);
 });
 
 bot.command("broadcast", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   ctx.session.adminAction = "broadcast";
   await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:");
 });
 
 bot.command("sozlamalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
   await handleAdminSettings(ctx);
 });
 
@@ -205,7 +205,7 @@ bot.on("text", async (ctx) => {
   // ============================
   // ADMIN TEXT ACTIONS
   // ============================
-  if (isAdmin(ctx.from.id) && ctx.session.adminAction) {
+  if (isAdmin(ctx.from.id, ctx.from.username) && ctx.session.adminAction) {
     if (await handleAdminEditText(ctx)) return;
     if (await handleAdminAddCategoryText(ctx)) return;
     if (await handleAdminSettingText(ctx)) return;
@@ -326,25 +326,25 @@ bot.on("text", async (ctx) => {
   // ADMIN BUTTONS
   // ============================
   if (text.includes("Bugungi statistika")) {
-    if (isAdmin(ctx.from.id)) return handleStats(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleStats(ctx);
   }
   if (text.includes("Buyurtmalar") && !text.includes("Faol")) {
-    if (isAdmin(ctx.from.id)) return handleAdminOrders(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminOrders(ctx);
   }
   if (text.includes("Faol buyurtmalar")) {
-    if (isAdmin(ctx.from.id)) return handleAdminActiveOrders(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminActiveOrders(ctx);
   }
   if (text.includes("Mijozlar")) {
-    if (isAdmin(ctx.from.id)) return handleAdminCustomers(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminCustomers(ctx);
   }
   if (text.includes("Menyuni boshqarish")) {
-    if (isAdmin(ctx.from.id)) return handleAdminMenuMgmt(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminMenuMgmt(ctx);
   }
   if (text.includes("Sozlamalar")) {
-    if (isAdmin(ctx.from.id)) return handleAdminSettings(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminSettings(ctx);
   }
   if (text.includes("Mahsulot qo'shish")) {
-    if (isAdmin(ctx.from.id)) return handleAdminAddProduct(ctx);
+    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminAddProduct(ctx);
   }
 });
 

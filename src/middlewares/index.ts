@@ -1,14 +1,22 @@
 import { BotContext } from "../types";
 
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || "")
+  .split(",")
+  .map((u) => u.trim().toLowerCase())
+  .filter(Boolean);
+
 const ADMIN_IDS = (process.env.ADMIN_IDS || "")
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);
 
 /**
- * Check if the current user is an admin
+ * Check if the current user is an admin (by username or ID)
  */
-export function isAdmin(telegramId: number): boolean {
+export function isAdmin(telegramId: number, username?: string): boolean {
+  if (username && ADMIN_USERNAMES.includes(username.toLowerCase())) {
+    return true;
+  }
   return ADMIN_IDS.includes(telegramId.toString());
 }
 

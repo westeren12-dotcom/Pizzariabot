@@ -5,7 +5,7 @@ import { isAdmin } from "../middlewares";
 export async function handleStart(ctx: BotContext) {
   if (!ctx.from) return;
 
-  const admin = isAdmin(ctx.from.id);
+  const admin = isAdmin(ctx.from.id, ctx.from.username);
 
   const welcomeText = `🍕 *Pizza Ria* ga xush kelibsiz!\n\nBizning menyudan o'z yoqtirgan taomingizni tanlab, buyurtma berishingiz mumkin.\n\n${admin ? "Admin panelga kirish uchun /admin yozing." : ""}\n\nQuyidagilardan birini tanlang:`;
 
@@ -18,7 +18,7 @@ export async function handleStart(ctx: BotContext) {
 export async function handleAdmin(ctx: BotContext) {
   if (!ctx.from) return;
 
-  if (!isAdmin(ctx.from.id)) {
+  if (!isAdmin(ctx.from.id, ctx.from.username)) {
     return ctx.reply("Siz admin emassiz!");
   }
 

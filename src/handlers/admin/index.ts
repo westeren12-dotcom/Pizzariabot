@@ -20,7 +20,7 @@ import { getCallbackData } from "../../utils/helpers";
 // ADMIN PANEL
 // ============================================================
 export async function handleAdminPanel(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) {
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) {
     return ctx.reply("⛔ Siz admin emassiz!");
   }
 
@@ -42,7 +42,7 @@ export async function handleAdminPanel(ctx: BotContext) {
 // TODAY'S STATISTICS
 // ============================================================
 export async function handleStats(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const stats = await db.getTodayStats();
 
@@ -82,7 +82,7 @@ export async function handleStats(ctx: BotContext) {
 // ALL ORDERS
 // ============================================================
 export async function handleAdminOrders(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const orders = await db.getAllOrders();
   const recentOrders = orders.slice(0, 15);
@@ -117,7 +117,7 @@ export async function handleAdminOrders(ctx: BotContext) {
 // VIEW SINGLE ORDER (Admin)
 // ============================================================
 export async function handleAdminViewOrderCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -160,7 +160,7 @@ export async function handleAdminViewOrderCallback(ctx: BotContext) {
 // UPDATE ORDER STATUS (Admin)
 // ============================================================
 export async function handleAdminStatusCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -214,7 +214,7 @@ export async function handleAdminStatusCallback(ctx: BotContext) {
 // ACTIVE ORDERS
 // ============================================================
 export async function handleAdminActiveOrders(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const orders = await db.getAllOrders();
   const activeOrders = orders.filter((o) =>
@@ -252,7 +252,7 @@ export async function handleAdminActiveOrders(ctx: BotContext) {
 // CUSTOMERS
 // ============================================================
 export async function handleAdminCustomers(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const users = await db.getAllUsers();
   const regularUsers = users.filter((u) => !u.isAdmin);
@@ -296,7 +296,7 @@ export async function handleAdminCustomers(ctx: BotContext) {
 // MENU MANAGEMENT
 // ============================================================
 export async function handleAdminMenuMgmt(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const text = `🍕 *Menyuni boshqarish*\n\nAmalni tanlang:`;
 
@@ -316,7 +316,7 @@ export async function handleAdminMenuMgmt(ctx: BotContext) {
 // ADD PRODUCT
 // ============================================================
 export async function handleAdminAddProduct(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const categories = await db.getActiveCategories();
   const text = `➕ *Mahsulot qo'shish*\n\nKategoriyani tanlang:`;
@@ -335,7 +335,7 @@ export async function handleAdminAddProduct(ctx: BotContext) {
 }
 
 export async function handleAdminCategorySelect(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -351,7 +351,7 @@ export async function handleAdminCategorySelect(ctx: BotContext) {
 }
 
 export async function handleAdminEditProduct(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -380,7 +380,7 @@ export async function handleAdminEditProduct(ctx: BotContext) {
 // EDIT PRODUCT ACTIONS
 // ============================================================
 export async function handleAdminEditNameCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -396,7 +396,7 @@ export async function handleAdminEditNameCallback(ctx: BotContext) {
 }
 
 export async function handleAdminEditPriceCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -418,7 +418,7 @@ export async function handleAdminEditPriceCallback(ctx: BotContext) {
 }
 
 export async function handleAdminEditDescCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -434,7 +434,7 @@ export async function handleAdminEditDescCallback(ctx: BotContext) {
 }
 
 export async function handleAdminDeleteProductCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -458,7 +458,7 @@ export async function handleAdminDeleteProductCallback(ctx: BotContext) {
 // ============================================================
 export async function handleAdminEditText(ctx: BotContext) {
   if (!ctx.from || !ctx.message || !("text" in ctx.message)) return false;
-  if (!isAdmin(ctx.from.id)) return false;
+  if (!isAdmin(ctx.from.id, ctx.from.username)) return false;
 
   const text = ctx.message.text;
   const action = ctx.session.adminAction;
@@ -571,7 +571,7 @@ export async function handleAdminEditText(ctx: BotContext) {
 // CATEGORY MANAGEMENT
 // ============================================================
 export async function handleAdminCatMgmtCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const categories = await db.getActiveCategories();
 
@@ -595,7 +595,7 @@ export async function handleAdminCatMgmtCallback(ctx: BotContext) {
 }
 
 export async function handleAdminAddCategoryCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   ctx.session.adminAction = "add_category";
 
@@ -607,7 +607,7 @@ export async function handleAdminAddCategoryCallback(ctx: BotContext) {
 
 export async function handleAdminAddCategoryText(ctx: BotContext) {
   if (!ctx.from || !ctx.message || !("text" in ctx.message)) return false;
-  if (!isAdmin(ctx.from.id)) return false;
+  if (!isAdmin(ctx.from.id, ctx.from.username)) return false;
 
   const text = ctx.message.text;
   if (ctx.session.adminAction === "add_category") {
@@ -634,7 +634,7 @@ export async function handleAdminAddCategoryText(ctx: BotContext) {
 // SETTINGS
 // ============================================================
 export async function handleAdminSettings(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const text = `⚙️ *Sozlamalar*\n\nSozlamani tanlang:`;
 
@@ -652,7 +652,7 @@ export async function handleAdminSettings(ctx: BotContext) {
 }
 
 export async function handleAdminSettingCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const data = getCallbackData(ctx);
   if (!data) return;
@@ -679,7 +679,7 @@ export async function handleAdminSettingCallback(ctx: BotContext) {
 
 export async function handleAdminSettingText(ctx: BotContext) {
   if (!ctx.from || !ctx.message || !("text" in ctx.message)) return false;
-  if (!isAdmin(ctx.from.id)) return false;
+  if (!isAdmin(ctx.from.id, ctx.from.username)) return false;
 
   const action = ctx.session.adminAction;
   if (!action || !action.startsWith("setting_")) return false;
@@ -698,7 +698,7 @@ export async function handleAdminSettingText(ctx: BotContext) {
 // ADMIN MAIN MENU CALLBACKS
 // ============================================================
 export async function handleAdminPanelCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const text = `👨‍💼 *Admin panel*\n\nQuyidagi amallardan birini tanlang:`;
 
@@ -715,7 +715,7 @@ export async function handleAdminPanelCallback(ctx: BotContext) {
 }
 
 export async function handleAdminMenuMgmtCallback(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const text = `🍕 *Menyuni boshqarish*\n\nAmalni tanlang:`;
 
@@ -735,7 +735,7 @@ export async function handleAdminMenuMgmtCallback(ctx: BotContext) {
 // MONTHLY REPORT
 // ============================================================
 export async function handleAdminReport(ctx: BotContext) {
-  if (!ctx.from || !isAdmin(ctx.from.id)) return;
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
