@@ -16,12 +16,12 @@ export async function handleMenuText(ctx: BotContext) {
     await ctx.replyWithPhoto(
       { source: menuImagePath },
       {
-        caption: "Menyudan birini tanlang:",
+        caption: "Menyudan birini tanlang yoki mahsulot nomini kiriting:",
         ...categoryListKeyboard(categories),
       }
     );
   } else {
-    const text = `🍕 *Menyu*\n\nKategoriyalardan birini tanlang:`;
+    const text = `Menyudan birini tanlang yoki mahsulot nomini kiriting:`;
     await ctx.reply(text, {
       parse_mode: "Markdown",
       ...categoryListKeyboard(categories),
@@ -71,9 +71,14 @@ export async function handleProductCallback(ctx: BotContext) {
     text += `\n  • ${variant.name} — ${variant.price.toLocaleString("uz-UZ")} so'm`;
   }
 
+  // Start order flow with this product
+  ctx.session.orderItem = `${product.name} — ${product.variants[0]?.name || "Standart"} ${product.variants[0]?.price?.toLocaleString("uz-UZ") || ""} so'm`;
+  ctx.session.state = "awaiting_order_name";
+
+  text += `\n\nIsmingizni kiriting:`;
+
   await ctx.editMessageText(text, {
     parse_mode: "Markdown",
-    ...productDetailKeyboard(prodId, product.variants.length > 1),
   });
 }
 
@@ -177,10 +182,8 @@ export async function handleConfirmAddCallback(ctx: BotContext) {
   await db.addToCart(ctx.from.id, productId, variantId, quantity);
 
   const product = await db.getProductById(productId);
-  const variant = await db.getVariantsByProduct(productId);
-  const selectedVariant = variant.find((v) => v.id === variantId);
 
-  await ctx.answerCbQuery(`✅ ${quantity} ta ${product?.name || "mahsulot"} savatga qo'shildi!`);
+  await ctx.answerCbQuery(`${quantity} ta ${product?.name || "mahsulot"} savatga qo'shildi!`);
 
   if (product) {
     let text = `${product.emoji || "🍽"} *${product.name}*\n`;

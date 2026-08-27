@@ -3,6 +3,8 @@ dotenv.config();
 import { Telegraf, session } from "telegraf";
 import { BotContext } from "./types";
 import { autoRegisterMiddleware, isAdmin } from "./middlewares";
+import * as path from "path";
+import * as fs from "fs";
 
 // Import handlers
 import { handleStart, handleAdmin } from "./handlers/start";
@@ -73,6 +75,16 @@ import {
   handleAdminReport,
 } from "./handlers/admin";
 
+import {
+  mainMenuKeyboard,
+  districtKeyboard,
+  orderConfirmKeyboard,
+  backToMainKeyboard,
+} from "./keyboards";
+
+import * as db from "./database";
+import { getCallbackData } from "./utils/helpers";
+
 // ============================================================
 // BOT INITIALIZATION
 // ============================================================
@@ -100,7 +112,7 @@ bot.use(autoRegisterMiddleware);
 // ============================================================
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err);
-  ctx.reply("Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring.").catch(() => {});
+  ctx.reply("Xatolik yuz berdi.").catch(() => {});
 });
 
 // ============================================================
@@ -161,9 +173,7 @@ bot.command("mijozlar", async (ctx) => {
 bot.command("broadcast", async (ctx) => {
   if (!ctx.from || !isAdmin(ctx.from.id)) return ctx.reply("Siz admin emassiz!");
   ctx.session.adminAction = "broadcast";
-  await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:", {
-    parse_mode: "Markdown",
-  });
+  await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:");
 });
 
 bot.command("sozlamalar", async (ctx) => {
@@ -172,14 +182,29 @@ bot.command("sozlamalar", async (ctx) => {
 });
 
 // ============================================================
-// TEXT MESSAGE HANDLERS (ReplyKeyboard)
+// CONTACT HANDLER
+// ============================================================
+bot.on("contact", handleContact);
+
+// ============================================================
+// LOCATION HANDLER
+// ============================================================
+bot.on("location", async (ctx) => {
+  if (ctx.session.state === "awaiting_location") {
+    return handleLocation(ctx);
+  }
+});
+
+// ============================================================
+// TEXT MESSAGE HANDLERS
 // ============================================================
 bot.on("text", async (ctx) => {
   const text = ctx.message.text;
 
-  // Check if user is in an admin action
+  // ============================
+  // ADMIN TEXT ACTIONS
+  // ============================
   if (isAdmin(ctx.from.id) && ctx.session.adminAction) {
-    // Try admin text handlers first
     if (await handleAdminEditText(ctx)) return;
     if (await handleAdminAddCategoryText(ctx)) return;
     if (await handleAdminSettingText(ctx)) return;
@@ -187,11 +212,9 @@ bot.on("text", async (ctx) => {
     // Broadcast handler
     if (ctx.session.adminAction === "broadcast") {
       ctx.session.adminAction = undefined;
-      const { getAllUsers } = await import("./database");
-      const users = await getAllUsers();
+      const users = await db.getAllUsers();
       let sent = 0;
       let failed = 0;
-
       for (const user of users) {
         try {
           await ctx.telegram.sendMessage(Number(user.telegramId), text);
@@ -200,33 +223,81 @@ bot.on("text", async (ctx) => {
           failed++;
         }
       }
-
       await ctx.reply(`Xabar yuborildi!\nYuborilgan: ${sent}\nXatolik: ${failed}`);
       return;
     }
   }
 
-  // Check if user is in order flow
-  if (ctx.session.state) {
-    if (ctx.session.state === "awaiting_phone") {
-      return handlePhoneText(ctx);
-    }
-    if (ctx.session.state === "awaiting_address") {
-      return handleAddress(ctx);
-    }
-    if (ctx.session.state === "awaiting_location") {
-      if (text === "Orqaga") {
-        ctx.session.state = "awaiting_address";
-        return ctx.reply("Manzilingizni kiriting:");
-      }
-      if (text === "Lokatsiyasiz davom etish") {
-        return handleSkipLocation(ctx);
-      }
-      return ctx.reply("Iltimos, Telegram lokatsiya tugmasini bosing:");
-    }
+  // ============================
+  // SIMPLE ORDER FLOW
+  // ============================
+
+  // State: awaiting order item (user types product name)
+  if (ctx.session.state === "awaiting_order_item") {
+    ctx.session.orderItem = text;
+    ctx.session.state = "awaiting_order_name";
+    await ctx.reply("Ismingizni kiriting:");
+    return;
   }
 
-  // Main menu text handlers
+  // State: awaiting order name
+  if (ctx.session.state === "awaiting_order_name") {
+    ctx.session.orderName = text;
+    ctx.session.state = "awaiting_order_district";
+    await ctx.reply("Hududni tanlang:", districtKeyboard());
+    return;
+  }
+
+  // State: awaiting order phone
+  if (ctx.session.state === "awaiting_order_phone") {
+    ctx.session.orderPhone = text;
+
+    // Show summary
+    const deliveryPriceSetting = await db.getSetting("delivery_price");
+    const deliveryPrice = parseInt(deliveryPriceSetting || "0");
+
+    let summary = `📦 *Buyurtma tasdiqlash*\n\n`;
+    summary += `🍕 *Menyu:* ${ctx.session.orderItem}\n`;
+    summary += `👤 *Ism:* ${ctx.session.orderName}\n`;
+    summary += `📍 *Hudud:* ${ctx.session.orderDistrict}\n`;
+    summary += `📞 *Telefon:* ${ctx.session.orderPhone}\n`;
+
+    if (deliveryPrice > 0) {
+      summary += `\n🚚 *Yetkazib berish:* ${deliveryPrice.toLocaleString("uz-UZ")} so'm`;
+    } else {
+      summary += `\n🚚 *Yetkazib berish:* Bepul`;
+    }
+
+    summary += `\n\nBuyurtmani tasdiqlaysizmi?`;
+
+    ctx.session.state = "awaiting_order_confirm";
+    await ctx.reply(summary, {
+      parse_mode: "Markdown",
+      ...orderConfirmKeyboard(),
+    });
+    return;
+  }
+
+  // ============================
+  // ORIGINAL ORDER FLOW (kept for compatibility)
+  // ============================
+  if (ctx.session.state === "awaiting_phone") {
+    return handlePhoneText(ctx);
+  }
+  if (ctx.session.state === "awaiting_address") {
+    return handleAddress(ctx);
+  }
+  if (ctx.session.state === "awaiting_location") {
+    if (text === "Orqaga") {
+      ctx.session.state = "awaiting_address";
+      return ctx.reply("Manzilingizni kiriting:");
+    }
+    return ctx.reply("Iltimos, Telegram lokatsiya tugmasini bosing:");
+  }
+
+  // ============================
+  // MAIN MENU BUTTONS
+  // ============================
   if (text.includes("Menyu") && !text.includes("boshqarish")) {
     return handleMenuText(ctx);
   }
@@ -249,7 +320,10 @@ bot.on("text", async (ctx) => {
     ctx.session.state = undefined;
     return handleStart(ctx);
   }
-  // Admin text handlers
+
+  // ============================
+  // ADMIN BUTTONS
+  // ============================
   if (text.includes("Bugungi statistika")) {
     if (isAdmin(ctx.from.id)) return handleStats(ctx);
   }
@@ -274,20 +348,6 @@ bot.on("text", async (ctx) => {
 });
 
 // ============================================================
-// CONTACT HANDLER
-// ============================================================
-bot.on("contact", handleContact);
-
-// ============================================================
-// LOCATION HANDLER
-// ============================================================
-bot.on("location", async (ctx) => {
-  if (ctx.session.state === "awaiting_location") {
-    return handleLocation(ctx);
-  }
-});
-
-// ============================================================
 // CALLBACK QUERY HANDLERS (InlineKeyboard)
 // ============================================================
 
@@ -306,13 +366,137 @@ bot.action("view_cart", handleViewCartCallback);
 bot.action("clear_cart", handleClearCartCallback);
 bot.action("start_order", handleStartOrderCallback);
 
+// District selection
+bot.action(/^district_(.+)$/, async (ctx) => {
+  const data = getCallbackData(ctx);
+  if (!data || !ctx.from) return;
+
+  const district = data.replace("district_", "");
+  ctx.session.orderDistrict = district === "chinobod" ? "Chinobod hududiga" : "Chinoboddan tashqariga";
+  ctx.session.state = "awaiting_order_phone";
+
+  await ctx.answerCbQuery();
+  await ctx.reply("📞 Telefon raqamingizni kiriting:");
+});
+
+// Order confirmation
+bot.action("confirm_order", async (ctx) => {
+  if (!ctx.from) return;
+
+  if (ctx.session.state !== "awaiting_order_confirm") {
+    return ctx.answerCbQuery("Buyurtma topilmadi!");
+  }
+
+  // Save order to database
+  const orderItem = ctx.session.orderItem || "";
+  const orderName = ctx.session.orderName || "";
+  const orderDistrict = ctx.session.orderDistrict || "";
+  const orderPhone = ctx.session.orderPhone || "";
+
+  try {
+    // Get or create user
+    await db.getOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+
+    // Create a simple order record
+    const orderNumber = await db.getNextOrderNumber();
+
+    // We'll store the order info in the database
+    // For now, create a minimal order
+    const cart = await db.getOrCreateCart(ctx.from.id);
+    const cartItems = await db.getCartItems(ctx.from.id);
+
+    if (cartItems.length > 0) {
+      // Use existing cart items
+      let totalPrice = 0;
+      for (const item of cartItems) {
+        totalPrice += item.variant.price * item.quantity;
+      }
+
+      const order = await db.createOrder({
+        userId: ctx.from.id,
+        phone: orderPhone,
+        address: orderDistrict,
+        paymentType: "cash",
+        deliveryPrice: 0,
+        totalPrice,
+        items: cartItems.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          price: item.variant.price,
+        })),
+      });
+
+      // Notify admins
+      const adminIds = (process.env.ADMIN_IDS || "")
+        .split(",")
+        .map((id) => parseInt(id.trim()))
+        .filter(Boolean);
+
+      let itemsText = "";
+      for (const item of order.items) {
+        const variantInfo = item.variant.name !== "Standart" ? ` — ${item.variant.name}` : "";
+        itemsText += `  ${item.product.emoji || "🍽"} ${item.product.name}${variantInfo} × ${item.quantity}\n`;
+      }
+
+      const adminMessage = `📦 YANGI BUYURTMA #${order.orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n${itemsText}\n💰 Jami: ${order.totalPrice.toLocaleString("uz-UZ")} so'm\n💳 To'lov: Naqd`;
+
+      for (const adminId of adminIds) {
+        try {
+          await ctx.telegram.sendMessage(adminId, adminMessage);
+        } catch (err) {
+          console.error(`Failed to notify admin ${adminId}:`, err);
+        }
+      }
+    } else {
+      // No cart items, just save the text order
+      const adminIds = (process.env.ADMIN_IDS || "")
+        .split(",")
+        .map((id) => parseInt(id.trim()))
+        .filter(Boolean);
+
+      const adminMessage = `📦 YANGI BUYURTMA #${orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n🍕 Mahsulot: ${orderItem}\n💳 To'lov: Naqd`;
+
+      for (const adminId of adminIds) {
+        try {
+          await ctx.telegram.sendMessage(adminId, adminMessage);
+        } catch (err) {
+          console.error(`Failed to notify admin ${adminId}:`, err);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Order error:", error);
+  }
+
+  // Clear session
+  ctx.session.state = undefined;
+  ctx.session.orderItem = undefined;
+  ctx.session.orderName = undefined;
+  ctx.session.orderDistrict = undefined;
+  ctx.session.orderPhone = undefined;
+
+  await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
+  await ctx.reply(
+    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
+    mainMenuKeyboard()
+  );
+});
+
+bot.action("cancel_order", async (ctx) => {
+  ctx.session.state = undefined;
+  ctx.session.orderItem = undefined;
+  ctx.session.orderName = undefined;
+  ctx.session.orderDistrict = undefined;
+  ctx.session.orderPhone = undefined;
+
+  await ctx.answerCbQuery("Buyurtma bekor qilindi");
+  await ctx.reply("❌ Buyurtma bekor qilindi.", mainMenuKeyboard());
+});
+
 // Payment callbacks
 bot.action(/^pay_(cash|card)$/, handlePaymentCallback);
 bot.action("back_to_address", handlePaymentCallback);
-
-// Order callbacks
-bot.action("confirm_order", handleConfirmOrderCallback);
-bot.action("cancel_order", handleCancelOrderCallback);
 
 // My orders callbacks
 bot.action("active_order", handleActiveOrderCallback);

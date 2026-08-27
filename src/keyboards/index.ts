@@ -1,5 +1,5 @@
 import { Markup } from "telegraf";
-import { InlineKeyboardButton, KeyboardButton } from "telegraf/types";
+import { InlineKeyboardButton } from "telegraf/types";
 
 // ============================================================
 // MAIN MENU KEYBOARD (ReplyKeyboard - column layout)
@@ -20,6 +20,26 @@ export function mainMenuKeyboard() {
 // ============================================================
 export function backToMainKeyboard() {
   return Markup.keyboard([[{ text: "🏠 Asosiy menyu" }]]).resize();
+}
+
+// ============================================================
+// DISTRICT SELECTION (InlineKeyboard - column)
+// ============================================================
+export function districtKeyboard() {
+  return Markup.inlineKeyboard([
+    [{ text: "📍 Chinobod hududiga", callback_data: "district_chinobod" }],
+    [{ text: "📍 Chinoboddan tashqariga", callback_data: "district_tashqari" }],
+  ]);
+}
+
+// ============================================================
+// ORDER CONFIRMATION (InlineKeyboard - column)
+// ============================================================
+export function orderConfirmKeyboard() {
+  return Markup.inlineKeyboard([
+    [{ text: "✅ Tasdiqlash", callback_data: "confirm_order" }],
+    [{ text: "❌ Bekor qilish", callback_data: "cancel_order" }],
+  ]);
 }
 
 // ============================================================
@@ -102,15 +122,6 @@ export function cartKeyboard(hasItems: boolean) {
 }
 
 // ============================================================
-// CART ITEM MANAGEMENT (InlineKeyboard - column)
-// ============================================================
-export function cartItemKeyboard(cartItemId: number) {
-  return Markup.inlineKeyboard([
-    [{ text: `🗑 O'chirish`, callback_data: `remove_cart_${cartItemId}` }],
-  ]);
-}
-
-// ============================================================
 // ORDER FLOW - CONTACT REQUEST (ReplyKeyboard)
 // ============================================================
 export function contactRequestKeyboard() {
@@ -142,16 +153,6 @@ export function paymentKeyboard() {
     [{ text: "💵 Naqd", callback_data: "pay_cash" }],
     [{ text: "💳 Karta", callback_data: "pay_card" }],
     [{ text: "⬅️ Orqaga", callback_data: "back_to_address" }],
-  ]);
-}
-
-// ============================================================
-// ORDER CONFIRMATION (InlineKeyboard - column)
-// ============================================================
-export function orderConfirmKeyboard() {
-  return Markup.inlineKeyboard([
-    [{ text: "✅ Buyurtmani tasdiqlash", callback_data: "confirm_order" }],
-    [{ text: "❌ Bekor qilish", callback_data: "cancel_order" }],
   ]);
 }
 

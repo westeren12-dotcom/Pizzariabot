@@ -15,6 +15,11 @@ export interface SessionData {
   adminAction?: string;
   editingProductId?: number;
   editingCategoryId?: number;
+  // Simple order flow
+  orderItem?: string;
+  orderName?: string;
+  orderDistrict?: string;
+  orderPhone?: string;
 }
 
 export interface BotContext extends Context {
@@ -33,12 +38,12 @@ export const ORDER_STATUS = {
 export type OrderStatusType = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
 
 export const STATUS_LABELS: Record<OrderStatusType, string> = {
-  pending: "⏳ Kutishda",
-  accepted: "✅ Qabul qilindi",
-  preparing: "🍳 Tayyorlanmoqda",
-  on_delivery: "🛵 Kuryerga berildi",
-  delivered: "✅ Yetkazildi",
-  cancelled: "❌ Bekor qilindi",
+  pending: "Kutishda",
+  accepted: "Qabul qilindi",
+  preparing: "Tayyorlanmoqda",
+  on_delivery: "Kuryerga berildi",
+  delivered: "Yetkazildi",
+  cancelled: "Bekor qilindi",
 };
 
 export const STATUS_EMOJI: Record<OrderStatusType, string> = {
@@ -56,14 +61,14 @@ export const PAYMENT_TYPES = {
 } as const;
 
 export const PAYMENT_LABELS: Record<string, string> = {
-  cash: "💵 Naqd",
-  card: "💳 Karta",
+  cash: "Naqd",
+  card: "Karta",
 };
 
 export const ADMIN_STATUSES: { status: OrderStatusType; label: string; emoji: string }[] = [
-  { status: "accepted", label: "✅ Qabul qilish", emoji: "✅" },
-  { status: "preparing", label: "🍳 Tayyorlanmoqda", emoji: "🍳" },
-  { status: "on_delivery", label: "🛵 Kuryerga berildi", emoji: "🛵" },
-  { status: "delivered", label: "✅ Yetkazildi", emoji: "✅" },
-  { status: "cancelled", label: "❌ Bekor qilish", emoji: "❌" },
+  { status: "accepted", label: "Qabul qilish", emoji: "✅" },
+  { status: "preparing", label: "Tayyorlanmoqda", emoji: "🍳" },
+  { status: "on_delivery", label: "Kuryerga berildi", emoji: "🛵" },
+  { status: "delivered", label: "Yetkazildi", emoji: "✅" },
+  { status: "cancelled", label: "Bekor qilish", emoji: "❌" },
 ];
