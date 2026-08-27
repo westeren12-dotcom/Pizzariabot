@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  telegramId  BigInt   @unique
+  firstName   String
+  lastName    String?
+  username    String?
+  phone       String?
+  isBot       Boolean  @default(false)
+  isAdmin     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cart           Cart?
+  orders         Order[]
+  deliveryInfos  DeliveryInfo[]
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  emoji     String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  emoji       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  categoryId  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    Category      @relation(fields: [categoryId], references: [id])
+  variants    ProductVariant[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model ProductVariant {
+  id        Int      @id @default(autoincrement())
+  name      String
+  price     Int
+  productId Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    BigInt   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [telegramId])
+  items     CartItem[]
+}
+
+model CartItem {
+  id          Int      @id @default(autoincrement())
+  quantity    Int      @default(1)
+  cartId      Int
+  productId   Int
+  variantId   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cart        Cart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product     Product       @relation(fields: [productId], references: [id])
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model DeliveryInfo {
+  id        Int      @id @default(autoincrement())
+  userId    BigInt
+  address   String
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [telegramId])
+}
+
+model Order {
+  id              Int       @id @default(autoincrement())
+  orderNumber     Int       @unique
+  userId          BigInt
+  status          String    @default("pending")
+  paymentType     String
+  deliveryPrice   Int       @default(0)
+  totalPrice      Int
+  address         String
+  phone           String
+  latitude        Float?
+  longitude       Float?
+  adminNote       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User           @relation(fields: [userId], references: [telegramId])
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  variantId   Int
+  quantity    Int      @default(1)
+  price       Int
+  createdAt   DateTime @default(now())
+
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [productId], references: [id])
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model OrderStatusHistory {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model BotSettings {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique
+  value         String
+  updatedAt     DateTime @updatedAt
+}
