@@ -17,6 +17,8 @@ export interface SessionData {
   editingCategoryId?: number;
   // Simple order flow
   orderItem?: string;
+  orderPrice?: number;
+  orderVariant?: string;
   orderName?: string;
   orderDistrict?: string;
   orderPhone?: string;

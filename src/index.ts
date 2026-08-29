@@ -19,6 +19,8 @@ import {
   handleMenuBack,
   handleMainMenuCallback,
   handleOrderItemCallback,
+  handleSizeSelection,
+  findMenuItem,
 } from "./handlers/menu";
 import {
   handleCartText,
@@ -123,65 +125,37 @@ bot.catch((err, ctx) => {
 bot.start(handleStart);
 
 // ============================================================
-// ADMIN COMMANDS
+// ADMIN COMMANDS — try/catch bilan
 // ============================================================
+function adminGuard(handler: (ctx: BotContext) => Promise<any>) {
+  return async (ctx: BotContext) => {
+    if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) {
+      return ctx.reply("Siz admin emassiz!");
+    }
+    try {
+      await handler(ctx);
+    } catch (err) {
+      console.error("Admin command error:", err);
+      await ctx.reply("Xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => {});
+    }
+  };
+}
+
 bot.command("admin", handleAdmin);
-
-bot.command("bugungifoyda", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleStats(ctx);
-});
-
-bot.command("bugunigibuyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminActiveOrders(ctx);
-});
-
-bot.command("statistika", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleStats(ctx);
-});
-
-bot.command("hisobot", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminReport(ctx);
-});
-
-bot.command("menyuboshqarish", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminMenuMgmt(ctx);
-});
-
-bot.command("narxlar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminSettings(ctx);
-});
-
-bot.command("buyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminOrders(ctx);
-});
-
-bot.command("faolbuyurtmalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminActiveOrders(ctx);
-});
-
-bot.command("mijozlar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminCustomers(ctx);
-});
-
-bot.command("broadcast", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
+bot.command("bugungifoyda", adminGuard(handleStats));
+bot.command("bugunigibuyurtmalar", adminGuard(handleAdminActiveOrders));
+bot.command("statistika", adminGuard(handleStats));
+bot.command("hisobot", adminGuard(handleAdminReport));
+bot.command("menyuboshqarish", adminGuard(handleAdminMenuMgmt));
+bot.command("narxlar", adminGuard(handleAdminSettings));
+bot.command("buyurtmalar", adminGuard(handleAdminOrders));
+bot.command("faolbuyurtmalar", adminGuard(handleAdminActiveOrders));
+bot.command("mijozlar", adminGuard(handleAdminCustomers));
+bot.command("broadcast", adminGuard(async (ctx) => {
   ctx.session.adminAction = "broadcast";
   await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:");
-});
-
-bot.command("sozlamalar", async (ctx) => {
-  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) return ctx.reply("Siz admin emassiz!");
-  await handleAdminSettings(ctx);
-});
+}));
+bot.command("sozlamalar", adminGuard(handleAdminSettings));
 
 // ============================================================
 // CONTACT HANDLER
@@ -206,7 +180,7 @@ bot.on("text", async (ctx) => {
   // ============================
   // ADMIN TEXT ACTIONS
   // ============================
-  if (isAdmin(ctx.from.id, ctx.from.username) && ctx.session.adminAction) {
+  if (ctx.from && isAdmin(ctx.from.id, ctx.from.username) && ctx.session.adminAction) {
     if (await handleAdminEditText(ctx)) return;
     if (await handleAdminAddCategoryText(ctx)) return;
     if (await handleAdminSettingText(ctx)) return;
@@ -236,9 +210,32 @@ bot.on("text", async (ctx) => {
 
   // State: awaiting order item (user types product name)
   if (ctx.session.state === "awaiting_order_item") {
-    ctx.session.orderItem = text;
-    ctx.session.state = "awaiting_order_name";
-    await ctx.reply("Ismingizni kiriting:");
+    const item = findMenuItem(text);
+    if (item) {
+      // If item has 2 prices, show size selection
+      if (item.priceSmall && item.priceLarge) {
+        ctx.session.orderItem = item.name;
+        ctx.session.state = "awaiting_order_size";
+        const { Markup } = await import("telegraf");
+        await ctx.reply(
+          `${item.name} tanlandi!\n\nHajmini tanlang:`,
+          Markup.inlineKeyboard([
+            [{ text: `Kichik — ${item.priceSmall.toLocaleString("uz-UZ")} so'm`, callback_data: `size_${item.name}_small` }],
+            [{ text: `Katta — ${item.priceLarge.toLocaleString("uz-UZ")} so'm`, callback_data: `size_${item.name}_large` }],
+            [{ text: "⬅️ Orqaga", callback_data: "menu_back" }],
+          ])
+        );
+        return;
+      }
+      // Single price
+      ctx.session.orderItem = item.name;
+      ctx.session.orderPrice = item.price || 0;
+      ctx.session.orderVariant = "Standart";
+      ctx.session.state = "awaiting_order_name";
+      await ctx.reply(`${item.name} — ${(item.price || 0).toLocaleString("uz-UZ")} so'm tanlandi!\n\nIsmingizni kiriting:`);
+    } else {
+      await ctx.reply("Mahsulot topilmadi. Qaytadan kiriting yoki menyudan tanlang:");
+    }
     return;
   }
 
@@ -254,22 +251,22 @@ bot.on("text", async (ctx) => {
   if (ctx.session.state === "awaiting_order_phone") {
     ctx.session.orderPhone = text;
 
-    // Show summary
-    const deliveryPriceSetting = await db.getSetting("delivery_price");
-    const deliveryPrice = parseInt(deliveryPriceSetting || "0");
+    const orderItem = ctx.session.orderItem || "";
+    const orderName = ctx.session.orderName || "";
+    const orderDistrict = ctx.session.orderDistrict || "";
+    const orderPrice = ctx.session.orderPrice || 0;
+    const orderVariant = ctx.session.orderVariant || "Standart";
 
     let summary = `📦 *Buyurtma tasdiqlash*\n\n`;
-    summary += `🍕 *Menyu:* ${ctx.session.orderItem}\n`;
-    summary += `👤 *Ism:* ${ctx.session.orderName}\n`;
-    summary += `📍 *Hudud:* ${ctx.session.orderDistrict}\n`;
-    summary += `📞 *Telefon:* ${ctx.session.orderPhone}\n`;
-
-    if (deliveryPrice > 0) {
-      summary += `\n🚚 *Yetkazib berish:* ${deliveryPrice.toLocaleString("uz-UZ")} so'm`;
-    } else {
-      summary += `\n🚚 *Yetkazib berish:* Bepul`;
+    summary += `🍕 *Menyu:* ${orderItem}`;
+    if (orderVariant !== "Standart") {
+      summary += ` (${orderVariant})`;
     }
-
+    summary += `\n💰 *Narx:* ${orderPrice.toLocaleString("uz-UZ")} so'm`;
+    summary += `\n👤 *Ism:* ${orderName}`;
+    summary += `\n📍 *Hudud:* ${orderDistrict}`;
+    summary += `\n📞 *Telefon:* ${text}`;
+    summary += `\n\n🚚 *Yetkazib berish:* Bepul`;
     summary += `\n\nBuyurtmani tasdiqlaysizmi?`;
 
     ctx.session.state = "awaiting_order_confirm";
@@ -326,26 +323,14 @@ bot.on("text", async (ctx) => {
   // ============================
   // ADMIN BUTTONS
   // ============================
-  if (text.includes("Bugungi statistika")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleStats(ctx);
-  }
-  if (text.includes("Buyurtmalar") && !text.includes("Faol")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminOrders(ctx);
-  }
-  if (text.includes("Faol buyurtmalar")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminActiveOrders(ctx);
-  }
-  if (text.includes("Mijozlar")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminCustomers(ctx);
-  }
-  if (text.includes("Menyuni boshqarish")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminMenuMgmt(ctx);
-  }
-  if (text.includes("Sozlamalar")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminSettings(ctx);
-  }
-  if (text.includes("Mahsulot qo'shish")) {
-    if (isAdmin(ctx.from.id, ctx.from.username)) return handleAdminAddProduct(ctx);
+  if (ctx.from && isAdmin(ctx.from.id, ctx.from.username)) {
+    if (text.includes("Bugungi statistika")) return handleStats(ctx);
+    if (text.includes("Buyurtmalar") && !text.includes("Faol")) return handleAdminOrders(ctx);
+    if (text.includes("Faol buyurtmalar")) return handleAdminActiveOrders(ctx);
+    if (text.includes("Mijozlar")) return handleAdminCustomers(ctx);
+    if (text.includes("Menyuni boshqarish")) return handleAdminMenuMgmt(ctx);
+    if (text.includes("Sozlamalar")) return handleAdminSettings(ctx);
+    if (text.includes("Mahsulot qo'shish")) return handleAdminAddProduct(ctx);
   }
 });
 
@@ -355,6 +340,7 @@ bot.on("text", async (ctx) => {
 
 // Menu callbacks
 bot.action(/^order_item_/, handleOrderItemCallback);
+bot.action(/^size_(.+)$/, handleSizeSelection);
 bot.action(/^cat_(\d+)$/, handleCategoryCallback);
 bot.action(/^prod_(\d+)$/, handleProductCallback);
 bot.action(/^add_cart_(\d+)$/, handleAddCartCallback);
@@ -394,6 +380,8 @@ bot.action("confirm_order", async (ctx) => {
   const orderName = ctx.session.orderName || "";
   const orderDistrict = ctx.session.orderDistrict || "";
   const orderPhone = ctx.session.orderPhone || "";
+  const orderPrice = ctx.session.orderPrice || 0;
+  const orderVariant = ctx.session.orderVariant || "Standart";
 
   try {
     await db.getOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
@@ -425,10 +413,12 @@ bot.action("confirm_order", async (ctx) => {
         })),
       });
     } else {
-      // Text-based order without cart
+      // Text-based order — use stored price
+      totalPrice = orderPrice;
+
       order = {
         orderNumber,
-        totalPrice: 0,
+        totalPrice: orderPrice,
         items: [],
         user: { firstName: ctx.from.first_name, lastName: ctx.from.last_name },
       };
@@ -451,7 +441,8 @@ bot.action("confirm_order", async (ctx) => {
         itemsText += `  ${item.product?.emoji || "🍽"} ${item.product?.name || ""}${variantInfo} × ${item.quantity}\n`;
       }
     } else {
-      itemsText = `  🍕 ${orderItem}\n`;
+      const variantInfo = orderVariant !== "Standart" ? ` (${orderVariant})` : "";
+      itemsText = `  🍕 ${orderItem}${variantInfo}\n`;
     }
 
     const totalPriceStr = totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") : "0";
@@ -473,13 +464,17 @@ bot.action("confirm_order", async (ctx) => {
   // Clear session
   ctx.session.state = undefined;
   ctx.session.orderItem = undefined;
+  ctx.session.orderPrice = undefined;
+  ctx.session.orderVariant = undefined;
   ctx.session.orderName = undefined;
   ctx.session.orderDistrict = undefined;
   ctx.session.orderPhone = undefined;
 
+  const variantInfo = orderVariant !== "Standart" ? ` (${orderVariant})` : "";
+
   await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
   await ctx.reply(
-    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
+    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
     mainMenuKeyboard()
   );
 });
@@ -487,6 +482,8 @@ bot.action("confirm_order", async (ctx) => {
 bot.action("cancel_order", async (ctx) => {
   ctx.session.state = undefined;
   ctx.session.orderItem = undefined;
+  ctx.session.orderPrice = undefined;
+  ctx.session.orderVariant = undefined;
   ctx.session.orderName = undefined;
   ctx.session.orderDistrict = undefined;
   ctx.session.orderPhone = undefined;

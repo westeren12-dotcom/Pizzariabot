@@ -8,35 +8,66 @@ import { getCallbackData } from "../utils/helpers";
 import * as path from "path";
 import * as fs from "fs";
 
-// All menu items with prices
-const ALL_MENU_ITEMS = [
-  { name: "TANDIR LAVASH", price: "35.000" },
-  { name: "LAVASH", price: "32.000" },
-  { name: "LAVASH KATTA", price: "35.000" },
-  { name: "LAVASH PISHLOQ", price: "35.000" },
-  { name: "NON BURGER", price: "35.000" },
-  { name: "GAMBURGER", price: "30.000" },
-  { name: "CHEESEBURGER", price: "35.000" },
-  { name: "HOT DOG", price: "15.000" },
-  { name: "HOT DOG KANADA", price: "18.000" },
-  { name: "BIG HOT DOG", price: "22.000" },
-  { name: "FREE (kartoshka) 150g", price: "20.000" },
-  { name: "FREE (kartoshka) 150g MAXSUS", price: "25.000" },
-  { name: "PEPPERONI", price: "50.000 / 70.000" },
-  { name: "MARGARITA", price: "40.000 / 60.000" },
-  { name: "MIKS", price: "70.000 / 95.000" },
-  { name: "GO'SHTLI", price: "60.000 / 80.000" },
-  { name: "4 FASL", price: "60.000 / 90.000" },
-  { name: "TOVUQLI", price: "60.000 / 80.000" },
-  { name: "RANCH", price: "50.000 / 75.000" },
+// All menu items with numeric prices
+interface MenuItem {
+  name: string;
+  price?: number;        // single price
+  priceSmall?: number;   // pizza small price
+  priceLarge?: number;   // pizza large price
+}
+
+const ALL_MENU_ITEMS: MenuItem[] = [
+  { name: "TANDIR LAVASH", price: 35000 },
+  { name: "LAVASH", price: 32000 },
+  { name: "LAVASH KATTA", price: 35000 },
+  { name: "LAVASH PISHLOQ", price: 35000 },
+  { name: "NON BURGER", price: 35000 },
+  { name: "GAMBURGER", price: 30000 },
+  { name: "CHEESEBURGER", price: 35000 },
+  { name: "HOT DOG", price: 15000 },
+  { name: "HOT DOG KANADA", price: 18000 },
+  { name: "BIG HOT DOG", price: 22000 },
+  { name: "FREE (kartoshka) 150g", price: 20000 },
+  { name: "FREE (kartoshka) 150g MAXSUS", price: 25000 },
+  { name: "PEPPERONI", priceSmall: 50000, priceLarge: 70000 },
+  { name: "MARGARITA", priceSmall: 40000, priceLarge: 60000 },
+  { name: "MIKS", priceSmall: 70000, priceLarge: 95000 },
+  { name: "GO'SHTLI", priceSmall: 60000, priceLarge: 80000 },
+  { name: "4 FASL", priceSmall: 60000, priceLarge: 90000 },
+  { name: "TOVUQLI", priceSmall: 60000, priceLarge: 80000 },
+  { name: "RANCH", priceSmall: 50000, priceLarge: 75000 },
 ];
+
+function formatPrice(n: number): string {
+  return n.toLocaleString("uz-UZ");
+}
+
+function getItemDisplayPrice(item: MenuItem): string {
+  if (item.price) return formatPrice(item.price);
+  if (item.priceSmall && item.priceLarge) return `${formatPrice(item.priceSmall)} / ${formatPrice(item.priceLarge)}`;
+  return "N/A";
+}
+
+// Check if item has two prices (pizza)
+function hasTwoPrices(item: MenuItem): boolean {
+  return !!(item.priceSmall && item.priceLarge);
+}
 
 function menuButtonsKeyboard() {
   const buttons: InlineKeyboardButton[][] = ALL_MENU_ITEMS.map((item) => [
-    { text: `${item.name} — ${item.price}`, callback_data: `order_item_${item.name}` },
+    { text: `${item.name} — ${getItemDisplayPrice(item)}`, callback_data: `order_item_${item.name}` },
   ]);
   buttons.push([{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }]);
   return Markup.inlineKeyboard(buttons);
+}
+
+// Keyboard for size selection (pizza)
+function sizeSelectionKeyboard(itemName: string, priceSmall: number, priceLarge: number): any {
+  return Markup.inlineKeyboard([
+    [{ text: `Kichik — ${formatPrice(priceSmall)} so'm`, callback_data: `size_${itemName}_small` }],
+    [{ text: `Katta — ${formatPrice(priceLarge)} so'm`, callback_data: `size_${itemName}_large` }],
+    [{ text: "⬅️ Orqaga", callback_data: "menu_back" }],
+  ]);
 }
 
 export async function handleMenuText(ctx: BotContext) {
@@ -66,11 +97,66 @@ export async function handleOrderItemCallback(ctx: BotContext) {
   const itemName = data.replace("order_item_", "");
   const item = ALL_MENU_ITEMS.find((i) => i.name === itemName);
 
-  ctx.session.orderItem = item ? `${item.name} — ${item.price} so'm` : itemName;
+  await ctx.answerCbQuery();
+
+  // If item has two prices (pizza), ask for size
+  if (item && hasTwoPrices(item) && item.priceSmall && item.priceLarge) {
+    ctx.session.orderItem = itemName;
+    ctx.session.state = "awaiting_order_size";
+    await ctx.reply(
+      `${itemName} tanlandi!\n\nHajmini tanlang:`,
+      sizeSelectionKeyboard(itemName, item.priceSmall, item.priceLarge)
+    );
+    return;
+  }
+
+  // Single price item - go directly to name
+  ctx.session.orderItem = itemName;
+  ctx.session.orderPrice = item?.price || 0;
+  ctx.session.orderVariant = "Standart";
   ctx.session.state = "awaiting_order_name";
+  await ctx.reply(`${itemName} — ${formatPrice(item?.price || 0)} so'm tanlandi!\n\nIsmingizni kiriting:`);
+}
+
+// Handle size selection for pizza
+export async function handleSizeSelection(ctx: BotContext) {
+  const data = getCallbackData(ctx);
+  if (!data || !ctx.from) return;
+
+  // Format: size_ITEMNAME_small or size_ITEMNAME_large
+  const parts = data.replace("size_", "").split("_");
+  const size = parts.pop(); // small or large
+  const itemName = parts.join("_"); // rejoin in case name has underscores
+
+  const item = ALL_MENU_ITEMS.find((i) => i.name === itemName);
+  if (!item) return;
 
   await ctx.answerCbQuery();
-  await ctx.reply(`${itemName} tanlandi!\n\nIsmingizni kiriting:`);
+
+  if (size === "small" && item.priceSmall) {
+    ctx.session.orderItem = itemName;
+    ctx.session.orderPrice = item.priceSmall;
+    ctx.session.orderVariant = "Kichik";
+    ctx.session.state = "awaiting_order_name";
+    await ctx.reply(`${itemName} (Kichik) — ${formatPrice(item.priceSmall)} so'm\n\nIsmingizni kiriting:`);
+  } else if (size === "large" && item.priceLarge) {
+    ctx.session.orderItem = itemName;
+    ctx.session.orderPrice = item.priceLarge;
+    ctx.session.orderVariant = "Katta";
+    ctx.session.state = "awaiting_order_name";
+    await ctx.reply(`${itemName} (Katta) — ${formatPrice(item.priceLarge)} so'm\n\nIsmingizni kiriting:`);
+  }
+}
+
+// Search item by text (fuzzy match)
+export function findMenuItem(text: string): MenuItem | undefined {
+  const upper = text.toUpperCase().trim();
+  // Exact match first
+  let found = ALL_MENU_ITEMS.find((i) => i.name === upper);
+  if (found) return found;
+  // Partial match
+  found = ALL_MENU_ITEMS.find((i) => upper.includes(i.name) || i.name.includes(upper));
+  return found;
 }
 
 export async function handleCategoryCallback(ctx: BotContext) {
@@ -116,6 +202,8 @@ export async function handleProductCallback(ctx: BotContext) {
   }
 
   ctx.session.orderItem = `${product.name} — ${product.variants[0]?.name || "Standart"} ${product.variants[0]?.price?.toLocaleString("uz-UZ") || ""} so'm`;
+  ctx.session.orderPrice = product.variants[0]?.price || 0;
+  ctx.session.orderVariant = product.variants[0]?.name || "Standart";
   ctx.session.state = "awaiting_order_name";
 
   text += `\n\nIsmingizni kiriting:`;
