@@ -1,7 +1,7 @@
 import { BotContext } from "../types";
 import { Markup } from "telegraf";
 import { InlineKeyboardButton } from "telegraf/types";
-import { categoryListKeyboard, productListKeyboard, productDetailKeyboard, variantSelectionKeyboard, quantityKeyboard, mainMenuKeyboard } from "../keyboards";
+import { categoryListKeyboard, productListKeyboard, productDetailKeyboard, variantSelectionKeyboard, quantityKeyboard, quantitySelectionKeyboard, mainMenuKeyboard } from "../keyboards";
 import { isAdmin } from "../middlewares";
 import * as db from "../database";
 import { getCallbackData } from "../utils/helpers";
@@ -110,12 +110,13 @@ export async function handleOrderItemCallback(ctx: BotContext) {
     return;
   }
 
-  // Single price item - go directly to name
+  // Single price item - ask quantity first
   ctx.session.orderItem = itemName;
   ctx.session.orderPrice = item?.price || 0;
   ctx.session.orderVariant = "Standart";
-  ctx.session.state = "awaiting_order_name";
-  await ctx.reply(`${itemName} — ${formatPrice(item?.price || 0)} so'm tanlandi!\n\nIsmingizni kiriting:`);
+  ctx.session.orderQuantity = 1;
+  ctx.session.state = "awaiting_order_quantity";
+  await ctx.reply(`${itemName} — ${formatPrice(item?.price || 0)} so'm tanlandi!\n\nMiqdorini tanlang (1-10):`, quantitySelectionKeyboard());
 }
 
 // Handle size selection for pizza
@@ -137,14 +138,16 @@ export async function handleSizeSelection(ctx: BotContext) {
     ctx.session.orderItem = itemName;
     ctx.session.orderPrice = item.priceSmall;
     ctx.session.orderVariant = "Kichik";
-    ctx.session.state = "awaiting_order_name";
-    await ctx.reply(`${itemName} (Kichik) — ${formatPrice(item.priceSmall)} so'm\n\nIsmingizni kiriting:`);
+    ctx.session.orderQuantity = 1;
+    ctx.session.state = "awaiting_order_quantity";
+    await ctx.reply(`${itemName} (Kichik) — ${formatPrice(item.priceSmall)} so'm\n\nMiqdorini tanlang (1-10):`, quantitySelectionKeyboard());
   } else if (size === "large" && item.priceLarge) {
     ctx.session.orderItem = itemName;
     ctx.session.orderPrice = item.priceLarge;
     ctx.session.orderVariant = "Katta";
-    ctx.session.state = "awaiting_order_name";
-    await ctx.reply(`${itemName} (Katta) — ${formatPrice(item.priceLarge)} so'm\n\nIsmingizni kiriting:`);
+    ctx.session.orderQuantity = 1;
+    ctx.session.state = "awaiting_order_quantity";
+    await ctx.reply(`${itemName} (Katta) — ${formatPrice(item.priceLarge)} so'm\n\nMiqdorini tanlang (1-10):`, quantitySelectionKeyboard());
   }
 }
 

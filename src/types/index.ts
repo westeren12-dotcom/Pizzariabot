@@ -22,6 +22,7 @@ export interface SessionData {
   orderName?: string;
   orderDistrict?: string;
   orderPhone?: string;
+  orderQuantity?: number;
 }
 
 export interface BotContext extends Context {

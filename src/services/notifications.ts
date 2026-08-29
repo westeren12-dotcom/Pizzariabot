@@ -1,8 +1,10 @@
 import { Telegraf } from "telegraf";
 import { BotContext } from "../types";
+import { Markup } from "telegraf";
 
 interface OrderNotification {
   orderNumber: number;
+  orderId?: number;
   customerName: string;
   customerPhone: string;
   district: string;
@@ -12,7 +14,7 @@ interface OrderNotification {
 }
 
 /**
- * Send Telegram notification to all admins with high-priority sound
+ * Send Telegram notification to all admins with high-priority sound + inline buttons
  */
 export async function notifyAdminsTelegram(
   bot: Telegraf<BotContext>,
@@ -20,13 +22,20 @@ export async function notifyAdminsTelegram(
   order: OrderNotification
 ) {
   const message = formatAdminMessage(order);
+  const orderId = order.orderId || order.orderNumber;
+
+  // Inline buttons: Tasdiqlash / Bekor qilish
+  const keyboard = Markup.inlineKeyboard([
+    [{ text: `✅ Buyurtma #${orderId} ni qabul qilish`, callback_data: `admin_accept_${orderId}` }],
+    [{ text: `❌ Buyurtma #${orderId} ni bekor qilish`, callback_data: `admin_reject_${orderId}` }],
+  ]);
 
   for (const adminId of adminIds) {
     try {
-      // Send with high-priority (notification sound)
       await bot.telegram.sendMessage(adminId, message, {
         parse_mode: "Markdown",
         disable_notification: false,
+        ...keyboard,
       });
       console.log(`✅ Telegram notification sent to admin ${adminId}`);
     } catch (err) {

@@ -84,6 +84,7 @@ import {
   districtKeyboard,
   orderConfirmKeyboard,
   backToMainKeyboard,
+  quantitySelectionKeyboard,
 } from "./keyboards";
 
 import * as db from "./database";
@@ -228,15 +229,32 @@ bot.on("text", async (ctx) => {
         );
         return;
       }
-      // Single price
+      // Single price — ask quantity first
       ctx.session.orderItem = item.name;
       ctx.session.orderPrice = item.price || 0;
       ctx.session.orderVariant = "Standart";
-      ctx.session.state = "awaiting_order_name";
-      await ctx.reply(`${item.name} — ${(item.price || 0).toLocaleString("uz-UZ")} so'm tanlandi!\n\nIsmingizni kiriting:`);
+      ctx.session.orderQuantity = 1;
+      ctx.session.state = "awaiting_order_quantity";
+      await ctx.reply(
+        `${item.name} — ${(item.price || 0).toLocaleString("uz-UZ")} so'm tanlandi!\n\nMiqdorini tanlang (1-10):`,
+        quantitySelectionKeyboard()
+      );
     } else {
       await ctx.reply("Mahsulot topilmadi. Qaytadan kiriting yoki menyudan tanlang:");
     }
+    return;
+  }
+
+  // State: awaiting order quantity (1-10)
+  if (ctx.session.state === "awaiting_order_quantity") {
+    const qty = parseInt(text);
+    if (isNaN(qty) || qty < 1 || qty > 10) {
+      await ctx.reply("Iltimos, 1 dan 10 gacha son kiriting:", quantitySelectionKeyboard());
+      return;
+    }
+    ctx.session.orderQuantity = qty;
+    ctx.session.state = "awaiting_order_name";
+    await ctx.reply(`✅ ${qty} dona tanlandi!\n\nIsmingizni kiriting:`);
     return;
   }
 
@@ -257,13 +275,17 @@ bot.on("text", async (ctx) => {
     const orderDistrict = ctx.session.orderDistrict || "";
     const orderPrice = ctx.session.orderPrice || 0;
     const orderVariant = ctx.session.orderVariant || "Standart";
+    const orderQuantity = ctx.session.orderQuantity || 1;
+    const totalPrice = orderPrice * orderQuantity;
 
     let summary = `📦 *Buyurtma tasdiqlash*\n\n`;
     summary += `🍕 *Menyu:* ${orderItem}`;
     if (orderVariant !== "Standart") {
       summary += ` (${orderVariant})`;
     }
-    summary += `\n💰 *Narx:* ${orderPrice.toLocaleString("uz-UZ")} so'm`;
+    summary += `\n🔢 *Miqdor:* ${orderQuantity} ta`;
+    summary += `\n💰 *Narx:* ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}`;
+    summary += `\n💰 *Jami:* ${totalPrice.toLocaleString("uz-UZ")} so'm`;
     summary += `\n👤 *Ism:* ${orderName}`;
     summary += `\n📍 *Hudud:* ${orderDistrict}`;
     summary += `\n📞 *Telefon:* ${text}`;
@@ -383,6 +405,8 @@ bot.action("confirm_order", async (ctx) => {
   const orderPhone = ctx.session.orderPhone || "";
   const orderPrice = ctx.session.orderPrice || 0;
   const orderVariant = ctx.session.orderVariant || "Standart";
+  const orderQuantity = ctx.session.orderQuantity || 1;
+  let savedOrderId = 0;
 
   try {
     await db.getOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
@@ -413,16 +437,21 @@ bot.action("confirm_order", async (ctx) => {
           price: item.variant.price,
         })),
       });
+      savedOrderId = order.id;
     } else {
-      // Text-based order — use stored price
-      totalPrice = orderPrice;
+      // Text-based order — use stored price × quantity
+      totalPrice = orderPrice * orderQuantity;
 
-      order = {
-        orderNumber,
-        totalPrice: orderPrice,
+      order = await db.createOrder({
+        userId: ctx.from.id,
+        phone: orderPhone,
+        address: orderDistrict,
+        paymentType: "cash",
+        deliveryPrice: 0,
+        totalPrice,
         items: [],
-        user: { firstName: ctx.from.first_name, lastName: ctx.from.last_name },
-      };
+      });
+      savedOrderId = order.id;
     }
 
     // Get admin IDs
@@ -434,7 +463,7 @@ bot.action("confirm_order", async (ctx) => {
       .filter(Boolean);
     const allAdminIds = [...new Set([...adminIds, ...envAdminIds])];
 
-    // Build items text
+    // Build items text with quantity
     let itemsText = "";
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
@@ -443,14 +472,15 @@ bot.action("confirm_order", async (ctx) => {
       }
     } else {
       const variantInfo = orderVariant !== "Standart" ? ` (${orderVariant})` : "";
-      itemsText = `  🍕 ${orderItem}${variantInfo}\n`;
+      itemsText = `  🍕 ${orderItem}${variantInfo} × ${orderQuantity}\n`;
     }
 
     const totalPriceStr = totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") : "0";
 
-    // Send Telegram notification + Phone call to admins
+    // Send Telegram notification + Phone call to admins (with orderId)
     await onNewOrder(bot, allAdminIds, {
       orderNumber: order.orderNumber,
+      orderId: savedOrderId,
       customerName: orderName,
       customerPhone: orderPhone,
       district: orderDistrict,
@@ -470,12 +500,14 @@ bot.action("confirm_order", async (ctx) => {
   ctx.session.orderName = undefined;
   ctx.session.orderDistrict = undefined;
   ctx.session.orderPhone = undefined;
+  ctx.session.orderQuantity = undefined;
 
   const variantInfo = orderVariant !== "Standart" ? ` (${orderVariant})` : "";
+  const totalPrice = orderPrice * orderQuantity;
 
   await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
   await ctx.reply(
-    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
+    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n🔢 Miqdor: ${orderQuantity} ta\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}\n💰 Jami: ${totalPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
     mainMenuKeyboard()
   );
 });
@@ -488,6 +520,7 @@ bot.action("cancel_order", async (ctx) => {
   ctx.session.orderName = undefined;
   ctx.session.orderDistrict = undefined;
   ctx.session.orderPhone = undefined;
+  ctx.session.orderQuantity = undefined;
 
   await ctx.answerCbQuery("Buyurtma bekor qilindi");
   await ctx.reply("❌ Buyurtma bekor qilindi.", mainMenuKeyboard());
@@ -504,6 +537,82 @@ bot.action(/^picked_up_(\d+)$/, handlePickedUpCallback);
 
 // About callback
 bot.action("about_callback", handleAboutCallback);
+
+// Admin accept/reject from notification buttons
+bot.action(/^admin_accept_(\d+)$/, async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) {
+    return ctx.answerCbQuery("Siz admin emassiz!");
+  }
+  const data = getCallbackData(ctx);
+  if (!data) return;
+  const orderId = parseInt(data.replace("admin_accept_", ""));
+  if (!orderId) return;
+
+  await db.updateOrderStatus(orderId, "accepted");
+  const order = await db.getOrderById(orderId);
+  if (!order) return ctx.answerCbQuery("Buyurtma topilmadi!");
+
+  // Notify customer
+  try {
+    await ctx.telegram.sendMessage(
+      Number(order.userId),
+      `✅ *Buyurtma #${order.orderNumber} qabul qilindi!*\n\nTez orada siz bilan bog'lanamiz.`,
+      { parse_mode: "Markdown" }
+    );
+  } catch {}
+
+  await ctx.answerCbQuery("✅ Buyurtma qabul qilindi!");
+  try {
+    await ctx.editMessageText(
+      `✅ *Buyurtma #${order.orderNumber} qabul qilindi!*\n\nMijozga xabar yuborildi.`,
+      { parse_mode: "Markdown" }
+    );
+  } catch {}
+});
+
+bot.action(/^admin_reject_(\d+)$/, async (ctx) => {
+  if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) {
+    return ctx.answerCbQuery("Siz admin emassiz!");
+  }
+  const data = getCallbackData(ctx);
+  if (!data) return;
+  const orderId = parseInt(data.replace("admin_reject_", ""));
+  if (!orderId) return;
+
+  await db.updateOrderStatus(orderId, "cancelled");
+  const order = await db.getOrderById(orderId);
+  if (!order) return ctx.answerCbQuery("Buyurtma topilmadi!");
+
+  // Notify customer
+  try {
+    await ctx.telegram.sendMessage(
+      Number(order.userId),
+      `❌ *Buyurtma #${order.orderNumber} bekor qilindi.*`,
+      { parse_mode: "Markdown" }
+    );
+  } catch {}
+
+  await ctx.answerCbQuery("❌ Buyurtma bekor qilindi!");
+  try {
+    await ctx.editMessageText(
+      `❌ *Buyurtma #${order.orderNumber} bekor qilindi.*`,
+      { parse_mode: "Markdown" }
+    );
+  } catch {}
+});
+
+// Quantity selection callback
+bot.action(/^order_qty_(\d+)$/, async (ctx) => {
+  const data = getCallbackData(ctx);
+  if (!data) return;
+  const qty = parseInt(data.replace("order_qty_", ""));
+  if (isNaN(qty) || qty < 1 || qty > 10) return;
+
+  ctx.session.orderQuantity = qty;
+  ctx.session.state = "awaiting_order_name";
+  await ctx.answerCbQuery(`${qty} ta tanlandi`);
+  await ctx.reply(`✅ ${qty} dona tanlandi!\n\nIsmingizni kiriting:`);
+});
 
 // Admin callbacks
 bot.action("admin_panel", handleAdminPanelCallback);

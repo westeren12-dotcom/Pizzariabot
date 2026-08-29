@@ -93,7 +93,18 @@ export function variantSelectionKeyboard(productId: number, variants: { id: numb
 }
 
 // ============================================================
-// QUANTITY SELECTION (InlineKeyboard - column)
+// QUANTITY SELECTION (InlineKeyboard - column, 1-10)
+// ============================================================
+export function quantitySelectionKeyboard() {
+  const buttons: InlineKeyboardButton[][] = [];
+  for (let i = 1; i <= 10; i++) {
+    buttons.push([{ text: `${i}`, callback_data: `order_qty_${i}` }]);
+  }
+  return Markup.inlineKeyboard(buttons);
+}
+
+// ============================================================
+// QUANTITY SELECTION (old cart style - kept for compatibility)
 // ============================================================
 export function quantityKeyboard(productId: number, variantId: number, current: number) {
   return Markup.inlineKeyboard([
@@ -275,6 +286,16 @@ export function adminOrdersListKeyboard(orders: { id: number; orderNumber: numbe
   ]);
   buttons.push([{ text: "⬅️ Orqaga", callback_data: "admin_panel" }]);
   return Markup.inlineKeyboard(buttons);
+}
+
+// ============================================================
+// ADMIN NOTIFICATION - ORDER ACTIONS (InlineKeyboard - column)
+// ============================================================
+export function adminOrderNotificationKeyboard(orderId: number) {
+  return Markup.inlineKeyboard([
+    [{ text: `✅ Buyurtma #${orderId} ni qabul qilish`, callback_data: `admin_accept_${orderId}` }],
+    [{ text: `❌ Buyurtma #${orderId} ni bekor qilish`, callback_data: `admin_reject_${orderId}` }],
+  ]);
 }
 
 // ============================================================
