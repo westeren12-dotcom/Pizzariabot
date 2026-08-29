@@ -85,6 +85,7 @@ import {
 
 import * as db from "./database";
 import { getCallbackData } from "./utils/helpers";
+import { onNewOrder } from "./services/notifications";
 
 // ============================================================
 // BOT INITIALIZATION
@@ -433,19 +434,16 @@ bot.action("confirm_order", async (ctx) => {
       };
     }
 
-    // Notify admins from database
+    // Get admin IDs
     const adminUsers = await db.getAdminUsers();
     const adminIds = adminUsers.map((u) => Number(u.telegramId));
-
     const envAdminIds = (process.env.ADMIN_IDS || "")
       .split(",")
       .map((id) => parseInt(id.trim()))
       .filter(Boolean);
-
     const allAdminIds = [...new Set([...adminIds, ...envAdminIds])];
 
-    console.log("Simple order - Admin IDs:", allAdminIds);
-
+    // Build items text
     let itemsText = "";
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
@@ -456,16 +454,18 @@ bot.action("confirm_order", async (ctx) => {
       itemsText = `  🍕 ${orderItem}\n`;
     }
 
-    const adminMessage = `📦 YANGI BUYURTMA #${order.orderNumber}\n\n👤 Mijoz: ${orderName}\n📞 Telefon: +${orderPhone}\n📍 Hudud: ${orderDistrict}\n${itemsText}\n💰 Jami: ${totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") + " so'm" : "Narx ko'rsatilmagan"}\n💳 To'lov: Naqd`;
+    const totalPriceStr = totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") : "0";
 
-    for (const adminId of allAdminIds) {
-      try {
-        await ctx.telegram.sendMessage(adminId, adminMessage);
-        console.log(`Admin notified: ${adminId}`);
-      } catch (err) {
-        console.error(`Failed to notify admin ${adminId}:`, err);
-      }
-    }
+    // Send Telegram notification + Phone call to admins
+    await onNewOrder(bot, allAdminIds, {
+      orderNumber: order.orderNumber,
+      customerName: orderName,
+      customerPhone: orderPhone,
+      district: orderDistrict,
+      items: itemsText,
+      totalPrice: totalPriceStr,
+      paymentType: "Naqd",
+    }, ctx.from.id);
   } catch (error) {
     console.error("Order error:", error);
   }
