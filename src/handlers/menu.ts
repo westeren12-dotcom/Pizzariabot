@@ -42,18 +42,20 @@ function menuButtonsKeyboard() {
 export async function handleMenuText(ctx: BotContext) {
   if (!ctx.from) return;
 
+  ctx.session.state = "awaiting_order_item";
+
   const menuImagePath = path.join(process.cwd(), "assets", "menu.png");
 
   if (fs.existsSync(menuImagePath)) {
     await ctx.replyWithPhoto(
       { source: menuImagePath },
       {
-        caption: "Menyudan birini tanlang:",
+        caption: "Menyudan birini tanlang yoki mahsulot nomini kiriting:",
         ...menuButtonsKeyboard(),
       }
     );
   } else {
-    await ctx.reply("Menyudan birini tanlang:", menuButtonsKeyboard());
+    await ctx.reply("Menyudan birini tanlang yoki mahsulot nomini kiriting:", menuButtonsKeyboard());
   }
 }
 
