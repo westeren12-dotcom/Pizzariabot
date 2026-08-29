@@ -44,6 +44,7 @@ import {
   handleActiveOrderCallback,
   handleOrderHistoryCallback,
   handleMyOrdersText,
+  handlePickedUpCallback,
 } from "./handlers/my-orders";
 import { handleAboutText, handleAboutCallback } from "./handlers/about";
 import { handleContactText } from "./handlers/contact";
@@ -499,6 +500,7 @@ bot.action("back_to_address", handlePaymentCallback);
 // My orders callbacks
 bot.action("active_order", handleActiveOrderCallback);
 bot.action("order_history", handleOrderHistoryCallback);
+bot.action(/^picked_up_(\d+)$/, handlePickedUpCallback);
 
 // About callback
 bot.action("about_callback", handleAboutCallback);

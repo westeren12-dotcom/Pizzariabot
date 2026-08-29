@@ -1,6 +1,8 @@
 import { BotContext, STATUS_LABELS, STATUS_EMOJI } from "../types";
 import { myOrdersKeyboard, mainMenuKeyboard, inlineMainMenu } from "../keyboards";
+import { Markup } from "telegraf";
 import * as db from "../database";
+import { getCallbackData } from "../utils/helpers";
 
 export async function handleMyOrdersText(ctx: BotContext) {
   if (!ctx.from) return;
@@ -24,17 +26,73 @@ export async function handleActiveOrderCallback(ctx: BotContext) {
 
   const text = buildOrderText(order);
 
+  // Add "Buyurtmani oldim" button for active orders
+  const keyboard = Markup.inlineKeyboard([
+    [{ text: "📦 Buyurtmani oldim", callback_data: `picked_up_${order.id}` }],
+    [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+  ]);
+
   try {
     await ctx.editMessageText(text, {
       parse_mode: "Markdown",
-      ...inlineMainMenu(),
+      ...keyboard,
     });
   } catch {
     await ctx.reply(text, {
       parse_mode: "Markdown",
-      ...inlineMainMenu(),
+      ...keyboard,
     });
   }
+}
+
+export async function handlePickedUpCallback(ctx: BotContext) {
+  if (!ctx.from) return;
+
+  const data = getCallbackData(ctx);
+  if (!data) return;
+  const orderId = parseInt(data.replace("picked_up_", ""));
+
+  if (!orderId) return ctx.answerCbQuery("Xatolik!");
+
+  const order = await db.getOrderById(orderId);
+
+  if (!order) {
+    return ctx.answerCbQuery("Buyurtma topilmadi!");
+  }
+
+  if (Number(order.userId) !== ctx.from.id) {
+    return ctx.answerCbQuery("Bu sizning buyurtmangiz emas!");
+  }
+
+  // Update status to delivered
+  await db.updateOrderStatus(orderId, "delivered");
+
+  // Notify admins
+  const adminUsers = await db.getAdminUsers();
+  const adminIds = adminUsers.map((u) => Number(u.telegramId));
+  const envAdminIds = (process.env.ADMIN_IDS || "")
+    .split(",")
+    .map((id) => parseInt(id.trim()))
+    .filter(Boolean);
+  const allAdminIds = [...new Set([...adminIds, ...envAdminIds])];
+
+  for (const adminId of allAdminIds) {
+    try {
+      await ctx.telegram.sendMessage(
+        adminId,
+        `✅ Buyurtma #${order.orderNumber} mijoz tomonidan olindi!\n\n👤 Mijoz: ${order.user.firstName}\n💰 Narx: ${order.totalPrice.toLocaleString("uz-UZ")} so'm`
+      );
+    } catch {}
+  }
+
+  await ctx.answerCbQuery("✅ Buyurtma olindi!");
+
+  const text = `✅ *Buyurtma #${order.orderNumber} olindi!*\n\nRahmat! Yana tashrif buyuring! 🍕`;
+
+  await ctx.editMessageText(text, {
+    parse_mode: "Markdown",
+    ...inlineMainMenu(),
+  });
 }
 
 export async function handleOrderHistoryCallback(ctx: BotContext) {
@@ -89,7 +147,7 @@ function buildOrderText(order: any): string {
   text += `\n\n💰 Jami: ${order.totalPrice.toLocaleString("uz-UZ")} so'm`;
   text += `\n📍 Manzil: ${order.address}`;
   text += `\n💳 To'lov: ${order.paymentType === "cash" ? "💵 Naqd" : "💳 Karta"}`;
-  text += `\n\n${statusLabel}`;
+  text += `\n\n📋 Holat: ${statusLabel}`;
 
   return text;
 }
