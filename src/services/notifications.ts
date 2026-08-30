@@ -42,9 +42,6 @@ export async function notifyAdminsTelegram(
       console.error(`❌ Failed to notify admin ${adminId}:`, err);
     }
   }
-
-  // Schedule repeat notifications (30s, 2min, 5min) if no response
-  scheduleReminders(bot, adminIds, order);
 }
 
 /**
@@ -64,34 +61,7 @@ function formatAdminMessage(order: OrderNotification): string {
   );
 }
 
-/**
- * Schedule repeat reminder messages
- */
-function scheduleReminders(
-  bot: Telegraf<BotContext>,
-  adminIds: number[],
-  order: OrderNotification
-) {
-  const reminders = [
-    { delay: 30_000, text: `⚠️ *ESLATMA!* Buyurtma #${order.orderNumber} hali javob berilmadi!\n\n👤 ${order.customerName} — +${order.customerPhone}\n⚡ TEZ JAVOB BERING!` },
-    { delay: 120_000, text: `🚨 *OGOHLANTIRISH!* Buyurtma #${order.orderNumber} 2 daqiqa javobsiz!\n\n👤 ${order.customerName} — +${order.customerPhone}\n🚨 Mijoz kutmoqda!` },
-    { delay: 300_000, text: `❌ *JUDA MUHIM!* Buyurtma #${order.orderNumber} 5 daqiqa javobsiz!\n\n👤 ${order.customerName} — +${order.customerPhone}\n❌ Mijoz uzoq kutyapti!` },
-  ];
 
-  for (const reminder of reminders) {
-    setTimeout(async () => {
-      for (const adminId of adminIds) {
-        try {
-          await bot.telegram.sendMessage(adminId, reminder.text, {
-            parse_mode: "Markdown",
-          });
-        } catch (err) {
-          console.error(`Failed to send reminder to ${adminId}:`, err);
-        }
-      }
-    }, reminder.delay);
-  }
-}
 
 /**
  * Send SMS to admin via Eskiz.uz API
@@ -211,7 +181,7 @@ export async function triggerAdminCall(order: OrderNotification) {
       const url = new URL("https://api.callmebot.com/start.php");
       url.searchParams.set("user", userParam);
       url.searchParams.set("text", callText);
-      url.searchParams.set("lang", "uz-UZ");
+      url.searchParams.set("lang", "uz");
       url.searchParams.set("rpt", "2");
       url.searchParams.set("cc", "yes");
 

@@ -134,6 +134,9 @@ function adminGuard(handler: (ctx: BotContext) => Promise<any>) {
     if (!ctx.from || !isAdmin(ctx.from.id, ctx.from.username)) {
       return ctx.reply("Siz admin emassiz!");
     }
+    // State ni tozalash — admin commandlari order flow'ni buzmasin
+    ctx.session.state = undefined;
+    ctx.session.adminAction = undefined;
     try {
       await handler(ctx);
     } catch (err) {
@@ -318,42 +321,69 @@ bot.on("text", async (ctx) => {
   }
 
   // ============================
+  // ADMIN BUTTONS (order flow'dan oldin tekshiriladi)
+  // ============================
+  if (ctx.from && isAdmin(ctx.from.id, ctx.from.username)) {
+    if (text.includes("Bugungi statistika")) {
+      ctx.session.state = undefined;
+      return handleStats(ctx);
+    }
+    if (text.includes("Buyurtmalar") && !text.includes("Faol")) {
+      ctx.session.state = undefined;
+      return handleAdminOrders(ctx);
+    }
+    if (text.includes("Faol buyurtmalar")) {
+      ctx.session.state = undefined;
+      return handleAdminActiveOrders(ctx);
+    }
+    if (text.includes("Mijozlar")) {
+      ctx.session.state = undefined;
+      return handleAdminCustomers(ctx);
+    }
+    if (text.includes("Menyuni boshqarish")) {
+      ctx.session.state = undefined;
+      return handleAdminMenuMgmt(ctx);
+    }
+    if (text.includes("Sozlamalar")) {
+      ctx.session.state = undefined;
+      return handleAdminSettings(ctx);
+    }
+    if (text.includes("Mahsulot qo'shish")) {
+      ctx.session.state = undefined;
+      return handleAdminAddProduct(ctx);
+    }
+  }
+
+  // ============================
   // MAIN MENU BUTTONS
   // ============================
   if (text.includes("Menyu") && !text.includes("boshqarish")) {
+    ctx.session.state = undefined;
     return handleMenuText(ctx);
   }
   if (text.includes("Savatim")) {
+    ctx.session.state = undefined;
     return handleCartText(ctx);
   }
   if (text.includes("buyurtmalarim")) {
+    ctx.session.state = undefined;
     return handleMyOrdersText(ctx);
   }
   if (text.includes("Yetkazib berish")) {
+    ctx.session.state = undefined;
     return handleDeliveryText(ctx);
   }
   if (text.includes("Biz haqimizda")) {
+    ctx.session.state = undefined;
     return handleAboutText(ctx);
   }
   if (text.includes("Bog'lanish")) {
+    ctx.session.state = undefined;
     return handleContactText(ctx);
   }
   if (text.includes("Asosiy menyu")) {
     ctx.session.state = undefined;
     return handleStart(ctx);
-  }
-
-  // ============================
-  // ADMIN BUTTONS
-  // ============================
-  if (ctx.from && isAdmin(ctx.from.id, ctx.from.username)) {
-    if (text.includes("Bugungi statistika")) return handleStats(ctx);
-    if (text.includes("Buyurtmalar") && !text.includes("Faol")) return handleAdminOrders(ctx);
-    if (text.includes("Faol buyurtmalar")) return handleAdminActiveOrders(ctx);
-    if (text.includes("Mijozlar")) return handleAdminCustomers(ctx);
-    if (text.includes("Menyuni boshqarish")) return handleAdminMenuMgmt(ctx);
-    if (text.includes("Sozlamalar")) return handleAdminSettings(ctx);
-    if (text.includes("Mahsulot qo'shish")) return handleAdminAddProduct(ctx);
   }
 });
 
