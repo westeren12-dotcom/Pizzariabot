@@ -94,56 +94,6 @@ function scheduleReminders(
 }
 
 /**
- * Trigger phone call to admin via CallMeBot API
- * Step 1: Send /start to @CallMeBot_txtbot to authorize
- * Step 2: Set CALLMEBOT_USER in .env (e.g. @username or +998...)
- */
-export async function triggerAdminCall(order: OrderNotification) {
-  // CallMeBot env variables
-  const callmebotUser = process.env.CALLMEBOT_USER || "";
-  const callmebotLang = process.env.CALLMEBOT_LANG || "en-GB-Standard-B";
-  const callmebotRepeat = process.env.CALLMEBOT_REPEAT || "2";
-
-  if (!callmebotUser) {
-    console.log("📞 CALLMEBOT_USER not set, skipping phone call");
-    console.log("📞 To enable: set CALLMEBOT_USER=@username in .env");
-    return;
-  }
-
-  const callText = `Yangi buyurtma number ${order.orderNumber}. Mijoz ${order.customerName}. Telefon ${order.customerPhone}. Tez javob bering!`;
-
-  // Support multiple users separated by comma
-  const users = callmebotUser.split(",").map((u) => u.trim()).filter(Boolean);
-
-  for (const user of users) {
-    try {
-      const userParam = user.startsWith("@") ? user : user.startsWith("+") ? user : `@${user}`;
-
-      // CallMeBot API format:
-      // http://api.callmebot.com/start.php?user=@username&text=message&lang=en-GB-Standard-B&rpt=2&cc=yes
-      const url = new URL("https://api.callmebot.com/start.php");
-      url.searchParams.set("user", userParam);
-      url.searchParams.set("text", callText);
-      url.searchParams.set("lang", callmebotLang);
-      url.searchParams.set("rpt", callmebotRepeat);
-      url.searchParams.set("cc", "yes");
-
-      console.log(`📞 Calling ${userParam}...`);
-      const response = await fetch(url.toString());
-
-      if (response.ok) {
-        console.log(`📞 Phone call triggered to ${userParam}`);
-      } else {
-        const body = await response.text();
-        console.error(`📞 Phone call failed to ${userParam}: ${response.status} - ${body}`);
-      }
-    } catch (err) {
-      console.error(`📞 Phone call error to ${user}:`, err);
-    }
-  }
-}
-
-/**
  * Send order confirmation to customer
  */
 export async function notifyCustomerOrderReceived(
@@ -154,7 +104,7 @@ export async function notifyCustomerOrderReceived(
   try {
     await bot.telegram.sendMessage(
       userId,
-      `✅ *Buyurtma #${orderNumber} qabul qilindi!*\n\nTez orada siz bilan bog'lanamiz.`,
+      `✅ *Buyurtma #${orderNumber} qabul qilindi!*\n\nBuyurtmangiz tayyorlanmoqda.\nTez orada siz bilan bog'lanamiz.`,
       { parse_mode: "Markdown" }
     );
   } catch (err) {
@@ -174,10 +124,7 @@ export async function onNewOrder(
   // 1. Telegram notifications to admins
   await notifyAdminsTelegram(bot, adminIds, order);
 
-  // 2. Phone call to admins (webhook)
-  await triggerAdminCall(order);
-
-  // 3. Confirmation to customer
+  // 2. Confirmation to customer
   if (customerUserId) {
     await notifyCustomerOrderReceived(bot, customerUserId, order.orderNumber);
   }

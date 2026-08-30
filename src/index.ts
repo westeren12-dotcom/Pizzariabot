@@ -477,7 +477,10 @@ bot.action("confirm_order", async (ctx) => {
 
     const totalPriceStr = totalPrice > 0 ? totalPrice.toLocaleString("uz-UZ") : "0";
 
-    // Send Telegram notification + Phone call to admins (with orderId)
+    // Auto-accept order
+    await db.updateOrderStatus(savedOrderId, "accepted");
+
+    // Send Telegram notification to admins
     await onNewOrder(bot, allAdminIds, {
       orderNumber: order.orderNumber,
       orderId: savedOrderId,
