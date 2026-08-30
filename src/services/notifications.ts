@@ -170,34 +170,34 @@ export async function triggerAdminCall(order: OrderNotification) {
     console.log("📞 CALLMEBOT_USER not configured, skipping phone call");
     console.log("📞 To enable: set CALLMEBOT_USER=@admin_username in .env");
     return;
-  }
+  }      // Ingliz tilida qo'ng'iroq matni (CallMeBot faqat Inglizni qo'llab-quvvatlaydi)
+      const callText = `New order number ${order.orderNumber}. Customer: ${order.customerName}. Phone: ${order.customerPhone}. Please respond quickly!`;
 
-  const callText = `Yangi buyurtma. Buyurtma raqami ${order.orderNumber}. Mijoz ${order.customerName}. Telefon ${order.customerPhone}. Tez javob bering!`;
+      for (const user of callmebotUsers) {
+        try {
+          // CallMeBot API format
+          const userParam = user.startsWith("@") ? user : `@${user}`;
+          const url = new URL("https://api.callmebot.com/start.php");
+          url.searchParams.set("user", userParam);
+          url.searchParams.set("text", callText);
+          url.searchParams.set("lang", "en-US-Neural2-J");
+          url.searchParams.set("rpt", "2");
+          url.searchParams.set("cc", "yes");
 
-  for (const user of callmebotUsers) {
-    try {
-      // CallMeBot API format
-      const userParam = user.startsWith("@") ? user : `@${user}`;
-      const url = new URL("https://api.callmebot.com/start.php");
-      url.searchParams.set("user", userParam);
-      url.searchParams.set("text", callText);
-      url.searchParams.set("lang", "uz");
-      url.searchParams.set("rpt", "2");
-      url.searchParams.set("cc", "yes");
+          console.log(`📞 Calling ${userParam}...`);
+          const response = await fetch(url.toString());
+          const body = await response.text();
+          console.log(`📞 Response from CallMeBot: ${response.status} - ${body}`);
 
-      console.log(`📞 Calling ${userParam}...`);
-      const response = await fetch(url.toString());
-
-      if (response.ok) {
-        console.log(`📞 Phone call triggered to ${userParam}`);
-      } else {
-        const body = await response.text();
-        console.error(`📞 Phone call failed to ${userParam}: ${response.status} - ${body}`);
+          if (response.ok) {
+            console.log(`📞 Phone call triggered to ${userParam}`);
+          } else {
+            console.error(`📞 Phone call failed to ${userParam}: ${response.status} - ${body}`);
+          }
+        } catch (err) {
+          console.error(`📞 Phone call error to ${user}:`, err);
+        }
       }
-    } catch (err) {
-      console.error(`📞 Phone call error to ${user}:`, err);
-    }
-  }
 }
 
 /**
