@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { Telegraf, session } from "telegraf";
+import { Telegraf, session, Markup } from "telegraf";
 import { BotContext } from "./types";
 import { autoRegisterMiddleware, isAdmin } from "./middlewares";
 import * as path from "path";
@@ -541,7 +541,10 @@ bot.action("confirm_order", async (ctx) => {
   await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
   await ctx.reply(
     `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n🔢 Miqdor: ${orderQuantity} ta\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}\n💰 Jami: ${totalPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
-    mainMenuKeyboard()
+    Markup.inlineKeyboard([
+      [{ text: "📞 Adminni qo'ng'iroq qilish", url: "tel:+998944557791" }],
+      [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+    ])
   );
 });
 

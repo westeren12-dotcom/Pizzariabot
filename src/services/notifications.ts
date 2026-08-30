@@ -232,10 +232,10 @@ export async function onNewOrder(
   await notifyAdminsTelegram(bot, adminIds, order);
 
   // 2. Phone call to admins (Twilio)
-  await triggerAdminCall(order);
+  // Phone call removed - using auto-accept
 
   // 3. SMS to admin phones (backup)
-  await notifyAdminsSms(order);
+  // SMS removed
 
   // 4. Confirmation to customer
   if (customerUserId) {

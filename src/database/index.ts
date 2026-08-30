@@ -58,7 +58,7 @@ export async function getUserOrderCount(telegramId: number) {
 
 export async function getUserTotalSpent(telegramId: number) {
   const result = await prisma.order.aggregate({
-    where: { userId: telegramId, status: "delivered" },
+    where: { userId: telegramId, status: { in: ["accepted", "delivered"] } },
     _sum: { totalPrice: true },
   });
   return result._sum.totalPrice || 0;
@@ -351,7 +351,7 @@ export async function getTodayStats() {
   });
 
   const deliveredOrders = await prisma.order.count({
-    where: { createdAt: { gte: today, lt: tomorrow }, status: "delivered" },
+    where: { createdAt: { gte: today, lt: tomorrow }, status: { in: ["accepted", "delivered"] } },
   });
 
   const pendingOrders = await prisma.order.count({
@@ -363,7 +363,7 @@ export async function getTodayStats() {
   });
 
   const revenue = await prisma.order.aggregate({
-    where: { createdAt: { gte: today, lt: tomorrow }, status: "delivered" },
+    where: { createdAt: { gte: today, lt: tomorrow }, status: { in: ["accepted", "delivered"] } },
     _sum: { totalPrice: true },
   });
 
@@ -371,7 +371,7 @@ export async function getTodayStats() {
   const topProducts = await prisma.orderItem.groupBy({
     by: ["productId"],
     where: {
-      order: { createdAt: { gte: today, lt: tomorrow }, status: "delivered" },
+      order: { createdAt: { gte: today, lt: tomorrow }, status: { in: ["accepted", "delivered"] } },
     },
     _sum: { quantity: true },
     orderBy: { _sum: { quantity: "desc" } },
