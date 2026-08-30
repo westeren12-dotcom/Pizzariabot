@@ -311,7 +311,7 @@ export async function getActiveOrderByUser(telegramId: number) {
       userId: telegramId,
       status: { in: ["pending", "accepted", "preparing", "on_delivery"] },
     },
-    include: { items: { include: { product: true, variant: true } } },
+    include: { items: { include: { product: true, variant: true } }, user: true },
     orderBy: { createdAt: "desc" },
   });
 }
