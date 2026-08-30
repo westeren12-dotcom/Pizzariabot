@@ -147,20 +147,6 @@ function adminGuard(handler: (ctx: BotContext) => Promise<any>) {
 }
 
 bot.command("admin", handleAdmin);
-bot.command("bugungifoyda", adminGuard(handleStats));
-bot.command("bugunigibuyurtmalar", adminGuard(handleAdminActiveOrders));
-bot.command("statistika", adminGuard(handleStats));
-bot.command("hisobot", adminGuard(handleAdminReport));
-bot.command("menyuboshqarish", adminGuard(handleAdminMenuMgmt));
-bot.command("narxlar", adminGuard(handleAdminSettings));
-bot.command("buyurtmalar", adminGuard(handleAdminOrders));
-bot.command("faolbuyurtmalar", adminGuard(handleAdminActiveOrders));
-bot.command("mijozlar", adminGuard(handleAdminCustomers));
-bot.command("broadcast", adminGuard(async (ctx) => {
-  ctx.session.adminAction = "broadcast";
-  await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:");
-}));
-bot.command("sozlamalar", adminGuard(handleAdminSettings));
 
 // ============================================================
 // CONTACT HANDLER
@@ -182,8 +168,73 @@ bot.on("location", async (ctx) => {
 bot.on("text", async (ctx) => {
   const text = ctx.message.text;
 
-  // Agar / command bo'lsa, command handler ishlaydi
-  if (text.startsWith("/")) return;
+
+  // ============================
+  // ADMIN COMMANDS (case-insensitive)
+  // ============================
+  if (text.startsWith("/")) {
+    const cmd = text.toLowerCase().replace("/", "").split("@")[0].split(" ")[0];
+    if (ctx.from && isAdmin(ctx.from.id, ctx.from.username)) {
+      if (cmd === "bugungifoyda" || cmd === "statistika") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleStats(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "buyurtmalar") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminOrders(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "hisobot") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminReport(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "menyuboshqarish") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminMenuMgmt(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "narxlar" || cmd === "sozlamalar") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminSettings(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "faolbuyurtmalar" || cmd === "bugunigibuyurtmalar") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminActiveOrders(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "mijozlar") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdminCustomers(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+      if (cmd === "broadcast") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = "broadcast";
+        try { await ctx.reply("Xabar matnini kiriting. Bu xabar barcha mijozlarga yuboriladi:"); } catch(e) { console.error(e); }
+        return;
+      }
+      if (cmd === "admin") {
+        ctx.session.state = undefined;
+        ctx.session.adminAction = undefined;
+        try { await handleAdmin(ctx); } catch(e) { console.error(e); await ctx.reply("Xatolik yuz berdi.").catch(()=>{}); }
+        return;
+      }
+    }
+    // Admin emas — boshqa command
+    if (cmd === "start") return; // /start boshqa handlerda
+    // Noma'lum command — e'tibor bermaslik
+    return;
+  }
 
   // ============================
   // ADMIN TEXT ACTIONS
