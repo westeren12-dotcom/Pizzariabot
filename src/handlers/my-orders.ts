@@ -80,7 +80,7 @@ export async function handlePickedUpCallback(ctx: BotContext) {
     try {
       await ctx.telegram.sendMessage(
         adminId,
-        `✅ Buyurtma #${order.orderNumber} mijoz tomonidan olindi!\n\n👤 Mijoz: ${order.user.firstName}\n💰 Narx: ${order.totalPrice.toLocaleString("uz-UZ")} so'm`
+        `✅ Buyurtma #${order.orderNumber} mijoz tomonidan olindi!\n\n👤 Mijoz: ${order.user?.firstName || "Noma'lum"}\n💰 Narx: ${order.totalPrice.toLocaleString("uz-UZ")} so'm`
       );
     } catch {}
   }

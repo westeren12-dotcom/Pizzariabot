@@ -182,6 +182,9 @@ bot.on("location", async (ctx) => {
 bot.on("text", async (ctx) => {
   const text = ctx.message.text;
 
+  // Agar / command bo'lsa, command handler ishlaydi
+  if (text.startsWith("/")) return;
+
   // ============================
   // ADMIN TEXT ACTIONS
   // ============================
@@ -538,14 +541,20 @@ bot.action("confirm_order", async (ctx) => {
   const variantInfo = orderVariant !== "Standart" ? ` (${orderVariant})` : "";
   const totalPrice = orderPrice * orderQuantity;
 
-  await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
-  await ctx.reply(
-    `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n🔢 Miqdor: ${orderQuantity} ta\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}\n💰 Jami: ${totalPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
+  try {
+    await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
+    await ctx.reply(
+      `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n🔢 Miqdor: ${orderQuantity} ta\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}\n💰 Jami: ${totalPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\nTez orada siz bilan bog'lanamiz!`,
     Markup.inlineKeyboard([
       [{ text: "📞 Adminni qo'ng'iroq qilish", url: "tel:+998944557791" }],
       [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
     ])
-  );
+    );
+  } catch (err) {
+    console.error("Reply error:", err);
+    await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
+    await ctx.reply("✅ Buyurtma tasdiqlandi! Tez orada siz bilan bog'lanamiz.");
+  }
 });
 
 bot.action("cancel_order", async (ctx) => {

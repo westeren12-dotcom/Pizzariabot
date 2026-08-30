@@ -52,7 +52,7 @@ function formatAdminMessage(order: OrderNotification): string {
     `🔔🔔🔔 *YANGI BUYURTMA!* 🔔🔔🔔\n\n` +
     `📦 *#${order.orderNumber}*\n\n` +
     `👤 *Mijoz:* ${order.customerName}\n` +
-    `📞 *Telefon:* +${order.customerPhone}\n` +
+    `📞 *Telefon:* ${order.customerPhone}\n` +
     `📍 *Hudud:* ${order.district}\n\n` +
     `🍽 *Buyurtma:*\n${order.items}\n\n` +
     `💰 *Jami:* ${order.totalPrice} so'm\n` +
