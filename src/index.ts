@@ -90,6 +90,7 @@ import {
 import * as db from "./database";
 import { getCallbackData } from "./utils/helpers";
 import { onNewOrder } from "./services/notifications";
+import { pushOrderToFirebase } from "./services/firebase";
 
 // ============================================================
 // BOT INITIALIZATION
@@ -575,6 +576,18 @@ bot.action("confirm_order", async (ctx) => {
       totalPrice: totalPriceStr,
       paymentType: "Naqd",
     }, ctx.from.id);
+
+    // Push to Firebase for Android Call Gateway
+    await pushOrderToFirebase({
+      orderId: savedOrderId,
+      orderNumber: order.orderNumber,
+      items: itemsText.trim(),
+      total: totalPrice,
+      customerName: orderName,
+      customerPhone: orderPhone,
+      district: orderDistrict,
+      paymentType: "Naqd",
+    });
   } catch (error) {
     console.error("Order error:", error);
   }

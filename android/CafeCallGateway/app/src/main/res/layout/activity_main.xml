@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CAFE CALL GATEWAY"
+            android:textColor="#e94560"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Connection Status -->
+        <TextView
+            android:id="@+id/connectionText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Connecting..."
+            android:textColor="#FFC107"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="#2d2d44"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Primary Number -->
+        <TextView
+            android:id="@+id/primaryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Primary: +998911700916"
+            android:textColor="#ffffff"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="#2d2d44"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Secondary Number -->
+        <TextView
+            android:id="@+id/secondaryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Secondary: +998943941919"
+            android:textColor="#ffffff"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="#2d2d44"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Last Order -->
+        <TextView
+            android:id="@+id/lastOrderText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Last Order: None"
+            android:textColor="#4ecca3"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="#2d2d44"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Test Call Button -->
+        <Button
+            android:id="@+id/testCallButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="📞 TEST CALL"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#e94560"
+            android:textColor="#ffffff"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Clear Log Button -->
+        <Button
+            android:id="@+id/clearLogButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Clear Log"
+            android:textSize="14sp"
+            android:backgroundTint="#4ecca3"
+            android:textColor="#ffffff"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Log Output -->
+        <TextView
+            android:id="@+id/logText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#a0a0a0"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:padding="12dp"
+            android:background="#0d0d1a"
+            android:minHeight="200dp" />
+
+    </LinearLayout>
+</ScrollView>
