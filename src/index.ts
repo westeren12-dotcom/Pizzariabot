@@ -625,20 +625,39 @@ bot.action("confirm_order", async (ctx) => {
   const totalPrice = orderPrice * orderQuantity;
 
   const adminPhone = process.env.ABOUT_PHONE || "+998943941919";
+  const cleanPhone = adminPhone.replace(/[^0-9+]/g, "");
+
+  const confirmMsg = [
+    `✅ <b>Buyurtma tasdiqlandi!</b>`,
+    ``,
+    `📦 Mahsulot: <b>${orderItem}${variantInfo}</b>`,
+    `🔢 Miqdor: <b>${orderQuantity} ta</b>`,
+    `💰 Narx: <b>${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}</b>`,
+    `💰 Jami: <b>${totalPrice.toLocaleString("uz-UZ")} so'm</b>`,
+    `👤 Ism: <b>${orderName}</b>`,
+    `📍 Hudud: <b>${orderDistrict}</b>`,
+    `📞 Telefon: <b>${orderPhone}</b>`,
+    ``,
+    `📞 Admin: <a href="tel:${cleanPhone}">${adminPhone}</a>`,
+    ``,
+    `Tez orada siz bilan bog'lanamiz!`,
+  ].join("\n");
 
   try {
     await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
-    await ctx.reply(
-      `✅ Buyurtma tasdiqlandi!\n\n📦 Mahsulot: ${orderItem}${variantInfo}\n🔢 Miqdor: ${orderQuantity} ta\n💰 Narx: ${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}\n💰 Jami: ${totalPrice.toLocaleString("uz-UZ")} so'm\n👤 Ism: ${orderName}\n📍 Hudud: ${orderDistrict}\n📞 Telefon: ${orderPhone}\n\n📞 Qo'ng'iroq uchun: ${adminPhone}\n\nTez orada siz bilan bog'lanamiz!`,
-    Markup.inlineKeyboard([
-      [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
-    ])
-    );
+    await ctx.reply(confirmMsg, {
+      parse_mode: "HTML",
+      ...Markup.inlineKeyboard([
+        [{ text: "📞 Adminni chaqirish", url: `tel:${cleanPhone}` }],
+        [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+      ]),
+    });
   } catch (err) {
     console.error("Reply error:", err);
     await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
-    await ctx.reply(`✅ Buyurtma tasdiqlandi!\n\n📞 Qo'ng'iroq: ${adminPhone}\nTez orada siz bilan bog'lanamiz!`, {
+    await ctx.reply(`✅ Buyurtma tasdiqlandi!\n\n📞 Admin: ${adminPhone}\nTez orada siz bilan bog'lanamiz!`, {
       ...Markup.inlineKeyboard([
+        [{ text: "📞 Adminni chaqirish", url: `tel:${cleanPhone}` }],
         [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
       ]),
     });

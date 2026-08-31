@@ -3,16 +3,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.pizzaria.cafecallgateway">
 
-    <!-- Call permission -->
+    <!-- Call permissions -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    
-    <!-- Foreground service for background listening -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -21,7 +20,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CafeCallGateway"
         tools:targetApi="31">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -37,7 +36,7 @@
             android:name="com.google.firebase.database.defaultInstance"
             android:value="true" />
 
-        <!-- Boot receiver to restart service -->
+        <!-- Boot receiver to auto-start -->
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
@@ -45,12 +44,6 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
-        <!-- Call Service for background call handling -->
-        <service
-            android:name=".CallService"
-            android:exported="false"
-            android:foregroundServiceType="phoneCall" />
 
     </application>
 

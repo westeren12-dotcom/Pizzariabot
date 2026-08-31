@@ -1,146 +1,96 @@
-# Firebase Setup Guide
+# Firebase Setup - Cafe Call Gateway
 
-## 1. Firebase Console'ga kiring
+## 📋 QADAM-BA-QADAM
 
-https://console.firebase.google.com
+### 1. Firebase Console
 
-## 2. Yangi loyiha yarating
+👉 https://console.firebase.google.com
 
-1. "Create a project" bosing
-2. Loyiha nomi: `pizzaria-cafe-gateway`
-3. Google Analytics'ni yoqing/yoqmaslik (ixtiyoriy)
-4. "Create project" bosing
+### 2. Loyiha tanlang yoki yarating
 
-## 3. Android app qo'shing
+- Loyiha nomi: `pizzaria-cafe-bot`
+- Agar mavjud bo'lsa — tanlang
 
-1. Dashboard'da Android ikonkasini bosing
+### 3. Android App qo'shing
+
+1. Dashboard'da **📱 Android** bosing
 2. Package name: `com.pizzaria.cafecallgateway`
 3. App nickname: `Cafe Call Gateway`
-4. Debug signing certificate SHA-1 (ixtiyoriy)
-5. "Register app" bosing
+4. **Register app** bosing
+5. **Download google-services.json** bosing
+6. Faylni `android/CafeCallGateway/app/` papkasiga joylang
 
-## 4. google-services.json download
+### 4. Realtime Database yarating
 
-1. "Download google-services.json" bosing
-2. Faylni saqlang
-3. `android/CafeCallGateway/app/google-services.json` ga joylang
+1. Chap tomonda **Build → Realtime Database**
+2. **Create database** bosing
+3. **Start in test mode** tanlang
+4. Region: **asia-southeast1**
+5. **Enable** bosing
 
-## 5. Dependencies qo'shing
+### 5. Database Config qo'shing
 
-Android Studio avtomatik qo'shadi. Agar qo'shmasa:
-
-`app/build.gradle` ga qo'shing:
-
-```gradle
-plugins {
-    id 'com.google.gms.google-services'
-}
-
-dependencies {
-    implementation platform('com.google.firebase:firebase-bom:32.7.0')
-    implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-messaging'
-}
-```
-
-## 6. Realtime Database yarating
-
-1. Firebase Console → Build → Realtime Database
-2. "Create database" bosing
-3. "Start in test mode" tanlang
-4. Region tanlang (asia-southeast1 yoki eng yaqin)
-5. "Enable" bosing
-
-## 7. Database Rules (Production uchun)
+Realtime Database'ga shu ma'lumotlarni kiriting:
 
 ```json
 {
-  "rules": {
-    "orders": {
-      ".read": true,
-      ".write": true
-    }
+  "config": {
+    "primaryNumber": "+998911700916",
+    "secondaryNumber": "+998943941919",
+    "gatewaySim": "+998943941919"
   }
 }
 ```
 
-> ⚠️ Production'da write rules'ni cheklang!
+### 6. Service Account (Railway uchun)
 
-## 8. Railway Backend ulash
+1. ⚙️ → **Project settings**
+2. **Service accounts** tab
+3. **Generate new private key** bosing
+4. JSON fayl download bo'ladi
+5. Railway Variables'ga qo'shing:
+   - `FIREBASE_SERVICE_ACCOUNT` = JSON faylning butun matni
+   - `FIREBASE_DATABASE_URL` = `https://pizzaria-cafe-bot-default-rtdb.asia-southeast1.firebasedatabase.app`
 
-Railway .env'ga qo'shing:
+## 🔧 TELEFON RAQAMLARNI O'ZGARTIRISH
 
-```
-FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key":"...","client_email":"..."}
-FIREBASE_DATABASE_URL=https://pizzaria-cafe-gateway-default-rtdb.firebaseio.com
-```
+### Firebase Console'dan
 
-### Service Account olish
+1. Realtime Database → `config` node'ini bosing
+2. `primaryNumber` yoki `secondaryNumber` ni o'zgartiring
+3. **Save** bosing
 
-1. Firebase Console → Project Settings (gear icon)
-2. "Service accounts" tab
-3. "Generate new private key" bosing
-4. JSON faylni saqlang
-5. Butun JSON'ni `FIREBASE_SERVICE_ACCOUNT` ga qo'shing
+### NATIJA
 
-## 9. Test Qilish
+Android app avtomatik yangi raqamlarni oladi!
 
-### 1. Android app'ni ishga tushiring
+## ✅ TEST
 
-Firebase Connected deb ko'rsatishi kerak.
-
-### 2. Firebase Console'da test order yarating
-
-Realtime Database → Data → Add data:
+1. Firebase Console'da **orders** node'ini bosing
+2. **+** bosing
+3. Yangi order yarating:
 
 ```json
 {
-  "orders": {
-    "test1": {
-      "status": "NEW",
-      "items": "1x Test Burger",
-      "total": 35000,
-      "callNumbers": ["+998911700916"],
-      "customerName": "Test",
-      "customerPhone": "+998911700916",
-      "district": "Chinobod",
-      "paymentType": "Naqd",
-      "orderNumber": 1,
-      "createdAt": 1750000000000
-    }
-  }
+  "status": "NEW",
+  "items": "Test order",
+  "total": 50000,
+  "callNumbers": ["+998911700916"],
+  "orderNumber": 999,
+  "customerName": "Test",
+  "createdAt": 1750000000000
 }
 ```
 
-### 3. Android app'da qo'ng'iroq ketishi kerak!
+4. Android app'da **"📞 NEW ORDER #999!"** logi chiqishi kerak
+5. Avtomatik qo'ng'iroq ketishi kerak
 
-## 10. Xatoliklar
+## ⚠️ XATOLIKLAR
 
 ### "Permission denied"
 - Firebase Console → Realtime Database → Rules
-- Read/Write ni true qiling
+- Read/Write = true bo'lishi kerak (test mode)
 
-### "google-services.json not found"
-- Faylni to'g'ri joyga qo'ying
-- Android Studio'da Sync bosing
-
-### "Firebase not initialized"
-- Internetni tekshiring
-- `google-services.json` to'g'ri ekanligini tekshiring
-
----
-
-## 📋 Checklist
-
-- [ ] Firebase loyiha yaratildi
-- [ ] Android app qo'shildi
-- [ ] `google-services.json` download qilindi
-- [ ] `app/` papkaga joylandi
-- [ ] Realtime Database yaratildi
-- [ ] Railway .env ga qo'shildi
-- [ ] Test order yaratildi
-- [ ] Android app ishladi
-
----
-
-**Tayyor!** Endi bot buyurtma qilganda Android app avtomatik qo'ng'iroq qiladi.
+### "App not connecting"
+- `google-services.json` to'g'ri joylanganligini tekshiring
+- Package name to'g'ri ekanligini tekshiring: `com.pizzaria.cafecallgateway`

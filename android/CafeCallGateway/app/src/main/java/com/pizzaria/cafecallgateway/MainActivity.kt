@@ -1,6 +1,9 @@
 package com.pizzaria.cafecallgateway
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -13,6 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.database.*
 import java.text.SimpleDateFormat
@@ -25,33 +29,30 @@ class MainActivity : AppCompatActivity() {
     private lateinit var secondaryText: TextView
     private lateinit var lastOrderText: TextView
     private lateinit var connectionText: TextView
+    private lateinit var logText: TextView
     private lateinit var testCallButton: Button
     private lateinit var clearLogButton: Button
-    private lateinit var logText: TextView
 
     private lateinit var database: DatabaseReference
     private var ordersListener: ValueEventListener? = null
-    
-    // Phone numbers from config
+
     private var primaryNumber = "+998911700916"
     private var secondaryNumber = "+998943941919"
-    
-    // Processed orders to avoid duplicate calls
+    private var gatewaySim = "+998943941919"
+
     private val processedOrders = mutableSetOf<String>()
-    
-    // Wake lock for background processing
     private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
-        private const val TAG = "CallGateway"
+        private const val NOTIFICATION_CHANNEL_ID = "call_gateway"
+        private const val NOTIFICATION_ID = 1
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize views
         statusText = findViewById(R.id.statusText)
         primaryText = findViewById(R.id.primaryText)
         secondaryText = findViewById(R.id.secondaryText)
@@ -61,37 +62,70 @@ class MainActivity : AppCompatActivity() {
         clearLogButton = findViewById(R.id.clearLogButton)
         logText = findViewById(R.id.logText)
 
-        // Display phone numbers
         primaryText.text = "Primary: $primaryNumber"
         secondaryText.text = "Secondary: $secondaryNumber"
 
-        // Request permissions
         requestPermissions()
-
-        // Initialize Firebase
+        createNotificationChannel()
+        startForegroundService()
         initFirebase()
+        acquireWakeLock()
 
-        // Test call button
         testCallButton.setOnClickListener {
             makePhoneCall(primaryNumber)
         }
 
-        // Clear log button
         clearLogButton.setOnClickListener {
             logText.text = ""
         }
 
-        // Acquire wake lock for background processing
-        acquireWakeLock()
+        addLog("🚀 Cafe Call Gateway started")
+        addLog("📱 Gateway SIM: $gatewaySim")
+        addLog("📞 Primary: $primaryNumber")
+        addLog("📞 Secondary: $secondaryNumber")
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Call Gateway Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Keeps Call Gateway running in background"
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun startForegroundService() {
+        val notificationIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, notificationIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("Cafe Call Gateway")
+            .setContentText("Listening for new orders...")
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun requestPermissions() {
         val permissions = mutableListOf<String>()
-        
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.CALL_PHONE)
         }
-        
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.READ_PHONE_STATE)
         }
@@ -100,6 +134,10 @@ class MainActivity : AppCompatActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WAKE_LOCK) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.WAKE_LOCK)
         }
 
         if (permissions.isNotEmpty()) {
@@ -112,10 +150,11 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == PERMISSION_REQUEST_CODE) {
             val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             if (allGranted) {
-                Toast.makeText(this, "Permissions granted!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "✅ All permissions granted!", Toast.LENGTH_SHORT).show()
+                addLog("✅ Permissions granted")
             } else {
-                Toast.makeText(this, "Call permission required!", Toast.LENGTH_LONG).show()
-                // Open settings
+                Toast.makeText(this, "⚠️ Call permission required!", Toast.LENGTH_LONG).show()
+                addLog("⚠️ Some permissions denied")
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 intent.data = Uri.parse("package:$packageName")
                 startActivity(intent)
@@ -126,29 +165,54 @@ class MainActivity : AppCompatActivity() {
     private fun initFirebase() {
         try {
             database = FirebaseDatabase.getInstance().reference
-            connectionText.text = "Status: Firebase Connected"
+            connectionText.text = "🟢 Firebase Connected"
             connectionText.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
-            addLog("Firebase connected successfully")
-            
-            // Listen for new orders
+            addLog("🟢 Firebase connected")
+
+            listenForConfig()
             listenForOrders()
         } catch (e: Exception) {
-            connectionText.text = "Status: Firebase Error"
+            connectionText.text = "🔴 Firebase Error"
             connectionText.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
-            addLog("Firebase error: ${e.message}")
+            addLog("🔴 Firebase error: ${e.message}")
         }
+    }
+
+    private fun listenForConfig() {
+        val configRef = database.child("config")
+
+        configRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val primary = snapshot.child("primaryNumber").getValue(String::class.java)
+                val secondary = snapshot.child("secondaryNumber").getValue(String::class.java)
+                val sim = snapshot.child("gatewaySim").getValue(String::class.java)
+
+                if (primary != null) primaryNumber = primary
+                if (secondary != null) secondaryNumber = secondary
+                if (sim != null) gatewaySim = sim
+
+                runOnUiThread {
+                    primaryText.text = "Primary: $primaryNumber"
+                    secondaryText.text = "Secondary: $secondaryNumber"
+                }
+                addLog("⚙️ Config updated from Firebase")
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                addLog("⚠️ Config read error: ${error.message}")
+            }
+        })
     }
 
     private fun listenForOrders() {
         val ordersRef = database.child("orders")
-        
+
         ordersListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 for (orderSnapshot in snapshot.children) {
                     val orderId = orderSnapshot.key ?: continue
                     val status = orderSnapshot.child("status").getValue(String::class.java)
-                    
-                    // Only process NEW orders
+
                     if (status == "NEW" && !processedOrders.contains(orderId)) {
                         processNewOrder(orderId, orderSnapshot)
                     }
@@ -156,64 +220,55 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                addLog("Firebase error: ${error.message}")
-                connectionText.text = "Status: Disconnected"
+                addLog("🔴 Firebase error: ${error.message}")
+                connectionText.text = "🔴 Disconnected"
                 connectionText.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.holo_red_dark))
             }
         }
-        
+
         ordersRef.addValueEventListener(ordersListener!!)
     }
 
     private fun processNewOrder(orderId: String, snapshot: DataSnapshot) {
-        val items = snapshot.child("items").getValue(String::class.java) ?: "Unknown items"
+        val items = snapshot.child("items").getValue(String::class.java) ?: "Unknown"
         val total = snapshot.child("total").getValue(Long::class.java) ?: 0
         val callNumbers = mutableListOf<String>()
-        
-        // Get call numbers
+
         val numbersSnapshot = snapshot.child("callNumbers")
         for (numberSnapshot in numbersSnapshot.children) {
             val number = numberSnapshot.getValue(String::class.java)
-            if (number != null) {
-                callNumbers.add(number)
-            }
+            if (number != null) callNumbers.add(number)
         }
-        
+
         val orderNumber = snapshot.child("orderNumber").getValue(Int::class.java) ?: orderId.toIntOrNull() ?: 0
         val customerName = snapshot.child("customerName").getValue(String::class.java) ?: "Unknown"
-        
+
         addLog("📞 NEW ORDER #$orderNumber!")
         addLog("   Items: $items")
         addLog("   Total: $total so'm")
         addLog("   Customer: $customerName")
-        addLog("   Call numbers: ${callNumbers.joinToString(", ")}")
-        
-        // Update last order display
+        addLog("   Numbers: ${callNumbers.joinToString(", ")}")
+
         lastOrderText.text = "Last Order: #$orderNumber"
-        
-        // Mark as processing
+
         processedOrders.add(orderId)
         updateOrderStatus(orderId, "CALLING")
-        
-        // Make phone calls sequentially
+
         makeSequentialCalls(orderId, callNumbers, 0)
     }
 
     private fun makeSequentialCalls(orderId: String, numbers: List<String>, index: Int) {
         if (index >= numbers.size) {
-            // All calls attempted
             updateOrderStatus(orderId, "CALLED")
             addLog("✅ All calls completed for order $orderId")
             return
         }
-        
+
         val phoneNumber = numbers[index]
         addLog("📞 Calling $phoneNumber...")
-        
-        // Make the call
+
         makePhoneCall(phoneNumber)
-        
-        // Wait before next call (30 seconds gap)
+
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             makeSequentialCalls(orderId, numbers, index + 1)
         }, 30000)
@@ -224,14 +279,13 @@ class MainActivity : AppCompatActivity() {
             addLog("❌ Call permission not granted")
             return
         }
-        
+
         try {
             val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$phoneNumber"))
             startActivity(intent)
             addLog("📞 Calling $phoneNumber...")
         } catch (e: Exception) {
             addLog("❌ Call failed: ${e.message}")
-            // Fallback to dialer
             try {
                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneNumber"))
                 startActivity(intent)
@@ -245,7 +299,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateOrderStatus(orderId: String, status: String) {
         try {
             database.child("orders").child(orderId).child("status").setValue(status)
-            addLog("📝 Order $orderId status: $status")
+            addLog("📝 Order $orderId → $status")
         } catch (e: Exception) {
             addLog("❌ Status update failed: ${e.message}")
         }
@@ -262,7 +316,7 @@ class MainActivity : AppCompatActivity() {
     private fun acquireWakeLock() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CafeCallGateway::WakeLock")
-        wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes
+        wakeLock?.acquire(60 * 60 * 1000L) // 1 hour
     }
 
     override fun onDestroy() {

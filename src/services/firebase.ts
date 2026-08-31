@@ -79,6 +79,7 @@ export async function pushOrderToFirebase(order: {
   // Get call numbers from env
   const primaryNumber = process.env.PRIMARY_CALL_NUMBER || "+998911700916";
   const secondaryNumber = process.env.SECONDARY_CALL_NUMBER || "";
+  const gatewaySim = process.env.GATEWAY_SIM_NUMBER || "+998943941919";
   const callNumbers = [primaryNumber];
   if (secondaryNumber) {
     callNumbers.push(secondaryNumber);
@@ -89,6 +90,7 @@ export async function pushOrderToFirebase(order: {
     items: order.items,
     total: order.total,
     callNumbers,
+    gatewaySim,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     district: order.district,
