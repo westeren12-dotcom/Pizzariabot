@@ -336,7 +336,7 @@ bot.on("text", async (ctx) => {
     const orderQuantity = ctx.session.orderQuantity || 1;
     const totalPrice = orderPrice * orderQuantity;
 
-    let summary = `📦 *Buyurtma tasdiqlash*\n\n`;
+    let summary = "📦 *Buyurtma tasdiqlash*\n\n";
     summary += `🍕 *Menyu:* ${orderItem}`;
     if (orderVariant !== "Standart") {
       summary += ` (${orderVariant})`;
@@ -351,10 +351,29 @@ bot.on("text", async (ctx) => {
     summary += `\n\nBuyurtmani tasdiqlaysizmi?`;
 
     ctx.session.state = "awaiting_order_confirm";
-    await ctx.reply(summary, {
-      parse_mode: "Markdown",
-      ...orderConfirmKeyboard(),
-    });
+    try {
+      await ctx.reply(summary, {
+        parse_mode: "Markdown",
+        ...orderConfirmKeyboard(),
+      });
+    } catch (replyErr) {
+      console.error("Markdown reply error, sending without format:", replyErr);
+      // Fallback: HTML formatda yuborish
+      const htmlSummary = `📦 Buyurtma tasdiqlash\n\n` +
+        `🍕 Menyu: <b>${orderItem}</b>` + (orderVariant !== "Standart" ? ` (${orderVariant})` : "") +
+        `\n🔢 Miqdor: <b>${orderQuantity} ta</b>` +
+        `\n💰 Narx: <b>${orderPrice.toLocaleString("uz-UZ")} so'm × ${orderQuantity}</b>` +
+        `\n💰 Jami: <b>${totalPrice.toLocaleString("uz-UZ")} so'm</b>` +
+        `\n👤 Ism: <b>${orderName}</b>` +
+        `\n📍 Hudud: <b>${orderDistrict}</b>` +
+        `\n📞 Telefon: <b>${text}</b>` +
+        `\n\n🚚 Yetkazib berish: <b>Bepul</b>` +
+        `\n\nBuyurtmani tasdiqlaysizmi?`;
+      await ctx.reply(htmlSummary, {
+        parse_mode: "HTML",
+        ...orderConfirmKeyboard(),
+      });
+    }
     return;
   }
 
