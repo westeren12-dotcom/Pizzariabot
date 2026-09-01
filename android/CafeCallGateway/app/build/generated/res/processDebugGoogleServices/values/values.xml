@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="firebase_database_url" translatable="false">https://pizzaria-cafe-bot-default-rtdb.asia-southeast1.firebasedatabase.app</string>
+    <string name="gcm_defaultSenderId" translatable="false">231931797050</string>
+    <string name="google_api_key" translatable="false">AIzaSyC4M0PQpowQ03_zt38s1Q3pvbLBx3VTKrw</string>
+    <string name="google_app_id" translatable="false">1:231931797050:android:7b914e3ea836b330af1f03</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyC4M0PQpowQ03_zt38s1Q3pvbLBx3VTKrw</string>
+    <string name="google_storage_bucket" translatable="false">pizzaria-cafe-bot.firebasestorage.app</string>
+    <string name="project_id" translatable="false">pizzaria-cafe-bot</string>
+</resources>

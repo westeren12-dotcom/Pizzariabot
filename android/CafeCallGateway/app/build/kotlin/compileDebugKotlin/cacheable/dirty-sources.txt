@@ -1,0 +1,2 @@
+C:\Users\i7\Desktop\Pizzaria_bot\android\CafeCallGateway\app\src\main\java\com\pizzaria\cafecallgateway\BootReceiver.kt
+C:\Users\i7\Desktop\Pizzaria_bot\android\CafeCallGateway\app\src\main\java\com\pizzaria\cafecallgateway\MainActivity.kt
