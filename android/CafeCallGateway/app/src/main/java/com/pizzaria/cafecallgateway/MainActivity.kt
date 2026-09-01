@@ -268,29 +268,28 @@ class MainActivity : AppCompatActivity() {
             ordersListener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     try {
-                        // Bazadagi barcha asosiy papkalarni logga chiqaramiz
-                        val keys = snapshot.children.map { it.key }.joinToString(", ")
-                        addLog("📂 DB Root Keys: $keys")
+                        searchForOrdersRecursive(snapshot)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Search error", e)
+                    }
+                }
 
-                        // Buyurtmalarni qidiramiz
-                        val ordersSnapshot = snapshot.child("orders")
-                        val childrenCount = ordersSnapshot.childrenCount
-                        addLog("📊 Orders found: $childrenCount")
-                        
-                        for (orderSnapshot in ordersSnapshot.children) {
-                            val orderId = orderSnapshot.key ?: continue
-                            val status = orderSnapshot.child("status").value?.toString() ?: "no_status"
-                            
-                            addLog("🧐 Order $orderId: $status")
-
-                            val normalizedStatus = status.uppercase(Locale.ROOT)
-                            if ((normalizedStatus == "NEW" || normalizedStatus == "PENDING") && !processedOrders.contains(orderId)) {
-                                processNewOrder(orderId, orderSnapshot)
+                private fun searchForOrdersRecursive(snapshot: DataSnapshot) {
+                    val status = snapshot.child("status").value?.toString()
+                    if (status != null) {
+                        val normalizedStatus = status.uppercase(Locale.ROOT)
+                        if (normalizedStatus == "NEW" || normalizedStatus == "PENDING") {
+                            val orderId = snapshot.key ?: "unknown"
+                            if (!processedOrders.contains(orderId)) {
+                                addLog("🎯 Found NEW order: $orderId")
+                                processNewOrder(orderId, snapshot)
+                                return
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Order parse error", e)
-                        addLog("❌ Order parse error: ${e.message}")
+                    }
+
+                    for (child in snapshot.children) {
+                        searchForOrdersRecursive(child)
                     }
                 }
 
