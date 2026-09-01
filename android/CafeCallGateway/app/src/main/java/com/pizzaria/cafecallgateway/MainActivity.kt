@@ -275,21 +275,30 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 private fun searchForOrdersRecursive(snapshot: DataSnapshot) {
-                    val status = snapshot.child("status").value?.toString()
-                    if (status != null) {
-                        val normalizedStatus = status.uppercase(Locale.ROOT)
-                        if (normalizedStatus == "NEW" || normalizedStatus == "PENDING") {
-                            val orderId = snapshot.key ?: "unknown"
-                            if (!processedOrders.contains(orderId)) {
-                                addLog("🎯 Found NEW order: $orderId")
-                                processNewOrder(orderId, snapshot)
-                                return
-                            }
+                    val orderId = snapshot.key ?: "unknown"
+                    
+                    // Statusni bir necha usulda qidiramiz:
+                    // 1. Papka ichidagi "status" maydoni
+                    // 2. Maydonning o'zi "NEW" bo'lsa
+                    val statusField = snapshot.child("status").value?.toString()
+                    val directValue = snapshot.value?.toString()
+                    
+                    val status = statusField ?: directValue ?: ""
+                    val normalizedStatus = status.uppercase(Locale.ROOT)
+
+                    if ((normalizedStatus == "NEW" || normalizedStatus == "PENDING") && !processedOrders.contains(orderId)) {
+                        // "orders" yoki "status" kabi kalit so'zlarni buyurtma ID deb o'ylamasligi uchun
+                        if (orderId != "orders" && orderId != "status" && orderId != "config") {
+                            addLog("🎯 Found NEW order: $orderId")
+                            processNewOrder(orderId, snapshot)
                         }
                     }
 
-                    for (child in snapshot.children) {
-                        searchForOrdersRecursive(child)
+                    // Ichkariga chuqurroq kirib qidirish
+                    if (snapshot.hasChildren()) {
+                        for (child in snapshot.children) {
+                            searchForOrdersRecursive(child)
+                        }
                     }
                 }
 
