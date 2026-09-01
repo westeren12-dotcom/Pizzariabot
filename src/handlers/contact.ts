@@ -16,7 +16,6 @@ Instagram sahifamizga o'tish uchun quyidagi tugmani bosing:`;
 
   const keyboard = Markup.inlineKeyboard([
     [{ text: "📸 Instagram", url: `https://instagram.com/${instagram || "pizza_ria_1"}` }],
-    [{ text: `📞 Qo'ng'iroq qilish`, url: `tel:${phone || "+998943941919"}` }],
     [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
   ]);
 

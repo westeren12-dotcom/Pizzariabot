@@ -638,7 +638,7 @@ bot.action("confirm_order", async (ctx) => {
     `📍 Hudud: <b>${orderDistrict}</b>`,
     `📞 Telefon: <b>${orderPhone}</b>`,
     ``,
-    `📞 Admin: <a href="tel:${cleanPhone}">${adminPhone}</a>`,
+    `📞 Admin: <b>${adminPhone}</b>`,
     ``,
     `Tez orada siz bilan bog'lanamiz!`,
   ].join("\n");
@@ -648,8 +648,7 @@ bot.action("confirm_order", async (ctx) => {
     await ctx.reply(confirmMsg, {
       parse_mode: "HTML",
       ...Markup.inlineKeyboard([
-        [{ text: "📞 Adminni chaqirish", url: `tel:${cleanPhone}` }],
-        [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+        [{ text: "📞 Admin: " + adminPhone, callback_data: "main_menu" }],
       ]),
     });
   } catch (err) {
@@ -657,8 +656,7 @@ bot.action("confirm_order", async (ctx) => {
     await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
     await ctx.reply(`✅ Buyurtma tasdiqlandi!\n\n📞 Admin: ${adminPhone}\nTez orada siz bilan bog'lanamiz!`, {
       ...Markup.inlineKeyboard([
-        [{ text: "📞 Adminni chaqirish", url: `tel:${cleanPhone}` }],
-        [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+        [{ text: "📞 Admin: " + adminPhone, callback_data: "main_menu" }],
       ]),
     });
   }
@@ -792,7 +790,7 @@ async function startBot() {
     await prisma.$connect();
     console.log("Database connected!");
 
-    await bot.launch();
+    await bot.launch({ dropPendingUpdates: true });
     console.log("Pizza Ria bot is running!");
 
     process.once("SIGINT", () => bot.stop("SIGINT"));
