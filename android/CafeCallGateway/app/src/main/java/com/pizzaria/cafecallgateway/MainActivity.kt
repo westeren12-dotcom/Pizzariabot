@@ -60,9 +60,11 @@ class MainActivity : AppCompatActivity() {
 
         // Ensure Firebase is initialized
         try {
-            FirebaseApp.initializeApp(this)
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
+            }
         } catch (e: Exception) {
-            // Might already be initialized by provider
+            Log.e(TAG, "Firebase initialization failed", e)
         }
 
         primaryText = findViewById(R.id.primaryText)
@@ -260,24 +262,29 @@ class MainActivity : AppCompatActivity() {
     private fun listenForOrders() {
         if (!::database.isInitialized) return
         try {
-            val ordersRef = database.child("orders")
+            // Ildizdan (root) boshlab hamma narsani kuzatamiz
+            val rootRef = database
 
             ordersListener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     try {
-                        if (!snapshot.exists()) {
-                            addLog("ℹ️ No orders found in database")
-                            return
-                        }
-                        for (orderSnapshot in snapshot.children) {
-                            val orderId = orderSnapshot.key ?: continue
-                            val status = orderSnapshot.child("status").value?.toString()
-                            
-                            // Debug log: har bir buyurtmani nima ekanligini ko'rish uchun
-                            Log.d(TAG, "Order observed: $orderId, Status: $status")
+                        // Bazadagi barcha asosiy papkalarni logga chiqaramiz
+                        val keys = snapshot.children.map { it.key }.joinToString(", ")
+                        addLog("📂 DB Root Keys: $keys")
 
-                            // Agar status NEW bo'lsa yoki bot qabul qilganda boshqa status ishlatsa shuni qo'shamiz
-                            if ((status == "NEW" || status == "pending") && !processedOrders.contains(orderId)) {
+                        // Buyurtmalarni qidiramiz
+                        val ordersSnapshot = snapshot.child("orders")
+                        val childrenCount = ordersSnapshot.childrenCount
+                        addLog("📊 Orders found: $childrenCount")
+                        
+                        for (orderSnapshot in ordersSnapshot.children) {
+                            val orderId = orderSnapshot.key ?: continue
+                            val status = orderSnapshot.child("status").value?.toString() ?: "no_status"
+                            
+                            addLog("🧐 Order $orderId: $status")
+
+                            val normalizedStatus = status.uppercase(Locale.ROOT)
+                            if ((normalizedStatus == "NEW" || normalizedStatus == "PENDING") && !processedOrders.contains(orderId)) {
                                 processNewOrder(orderId, orderSnapshot)
                             }
                         }
@@ -295,8 +302,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            ordersRef.addValueEventListener(ordersListener!!)
-            addLog("👂 Listening for orders...")
+            database.addValueEventListener(ordersListener!!)
+            addLog("👂 Listening for all changes...")
         } catch (e: Exception) {
             Log.e(TAG, "Orders listener error", e)
             addLog("❌ Orders listener error: ${e.message}")
@@ -306,16 +313,25 @@ class MainActivity : AppCompatActivity() {
     private fun processNewOrder(orderId: String, snapshot: DataSnapshot) {
         try {
             val items = snapshot.child("items").value?.toString() ?: "Unknown"
-            val total = (snapshot.child("total").value as? Number)?.toLong() ?: 0L
-            val callNumbers = mutableListOf<String>()
-
-            val numbersSnapshot = snapshot.child("callNumbers")
-            for (numberSnapshot in numbersSnapshot.children) {
-                val number = numberSnapshot.value?.toString()
-                if (number != null) callNumbers.add(number)
+            
+            // Raqamlarni xavfsiz o'qish
+            val totalRaw = snapshot.child("total").value
+            val total = when (totalRaw) {
+                is Number -> totalRaw.toLong()
+                is String -> totalRaw.toLongOrNull() ?: 0L
+                else -> 0L
             }
 
-            // Agar bazadan raqamlar kelmasa, sozlamadagi raqamlarga qo'ng'iroq qilamiz
+            val callNumbers = mutableListOf<String>()
+            val numbersSnapshot = snapshot.child("callNumbers")
+            if (numbersSnapshot.exists()) {
+                for (numberSnapshot in numbersSnapshot.children) {
+                    val number = numberSnapshot.value?.toString()
+                    if (number != null) callNumbers.add(number)
+                }
+            }
+
+            // Agar bazadan raqamlar kelmasa
             if (callNumbers.isEmpty()) {
                 callNumbers.add(primaryNumber)
                 if (secondaryNumber != primaryNumber) {
@@ -324,8 +340,13 @@ class MainActivity : AppCompatActivity() {
                 addLog("ℹ️ Using default numbers for call")
             }
 
-            val orderNumberValue = snapshot.child("orderNumber").value
-            val orderNumber = (orderNumberValue as? Number)?.toInt() ?: orderId.toIntOrNull() ?: 0
+            val orderNumberRaw = snapshot.child("orderNumber").value
+            val orderNumber = when (orderNumberRaw) {
+                is Number -> orderNumberRaw.toInt()
+                is String -> orderNumberRaw.toIntOrNull() ?: 0
+                else -> orderId.toIntOrNull() ?: 0
+            }
+            
             val customerName = snapshot.child("customerName").value?.toString() ?: "Unknown"
 
             addLog("📞 NEW ORDER #$orderNumber!")
@@ -372,20 +393,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun makePhoneCall(phoneNumber: String) {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            addLog("❌ Call permission not granted")
+            addLog("❌ Call permission missing! Please grant it.")
+            requestPermissions()
             return
         }
 
         try {
             val intent = Intent(Intent.ACTION_CALL, "tel:$phoneNumber".toUri())
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Fondan turib ochish uchun
             startActivity(intent)
-            addLog("📞 Calling $phoneNumber...")
+            addLog("📞 CALLING $phoneNumber...")
         } catch (e: Exception) {
-            addLog("❌ Call failed: ${e.message}")
+            addLog("❌ Direct call failed: ${e.message}")
             try {
                 val intent = Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri())
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
-                addLog("📱 Opened dialer for $phoneNumber")
+                addLog("📱 Dialer opened for $phoneNumber")
             } catch (e2: Exception) {
                 addLog("❌ Dialer failed: ${e2.message}")
             }
