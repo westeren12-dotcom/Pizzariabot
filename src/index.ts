@@ -786,7 +786,7 @@ bot.action(/^admin_set_/, handleAdminSettingCallback);
 // ============================================================
 // LAUNCH BOT
 // ============================================================
-async function startBot() {
+async function startBot(retryCount = 0) {
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -800,7 +800,14 @@ async function startBot() {
     process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
     await prisma.$disconnect();
-  } catch (error) {
+  } catch (error: any) {
+    // 409 Conflict = another instance is running, retry after delay
+    if (error?.response?.error_code === 409 && retryCount < 10) {
+      const delay = Math.min(5000 * (retryCount + 1), 30000);
+      console.log(`⚠️ Bot conflict (409). Retrying in ${delay / 1000}s... (attempt ${retryCount + 1}/10)`);
+      await new Promise(r => setTimeout(r, delay));
+      return startBot(retryCount + 1);
+    }
     console.error("Failed to start bot:", error);
     process.exit(1);
   }
