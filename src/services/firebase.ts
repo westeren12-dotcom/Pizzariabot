@@ -32,7 +32,9 @@ function initFirebase(): Database | null {
 
   try {
     if (getApps().length === 0) {
-      const serviceAccountJSON = JSON.parse(serviceAccount);
+      // Clean JSON string: remove newlines, tabs, extra spaces that may break parsing
+      const cleanJSON = serviceAccount.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+      const serviceAccountJSON = JSON.parse(cleanJSON);
       firebaseApp = initializeApp({
         credential: cert(serviceAccountJSON),
         databaseURL,
