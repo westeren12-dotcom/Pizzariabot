@@ -19,6 +19,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.google.firebase.FirebaseApp
 import com.google.firebase.database.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,8 +38,8 @@ class MainActivity : AppCompatActivity() {
     private var ordersListener: ValueEventListener? = null
     private var configListener: ValueEventListener? = null
 
-    private var primaryNumber = "+998911700916"
-    private var secondaryNumber = "+998943941919"
+    private var primaryNumber = "+998943941919"
+    private var secondaryNumber = "+998911700916"
     private var gatewaySim = "+998943941919"
 
     private val processedOrders = mutableSetOf<String>()
@@ -49,11 +50,20 @@ class MainActivity : AppCompatActivity() {
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val NOTIFICATION_CHANNEL_ID = "call_gateway"
         private const val NOTIFICATION_ID = 1
+        private const val DB_URL = "https://pizzaria-cafe-bot-default-rtdb.asia-southeast1.firebasedatabase.app"
+        private var isPersistenceEnabled = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Ensure Firebase is initialized
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            // Might already be initialized by provider
+        }
 
         primaryText = findViewById(R.id.primaryText)
         secondaryText = findViewById(R.id.secondaryText)
@@ -67,11 +77,16 @@ class MainActivity : AppCompatActivity() {
         secondaryText.text = getString(R.string.secondary_number_format, secondaryNumber)
 
         createNotificationChannel()
+        showNotification()
         requestPermissions()
         initFirebase()
 
         testCallButton.setOnClickListener {
-            makePhoneCall(primaryNumber)
+            try {
+                makePhoneCall(primaryNumber)
+            } catch (e: Exception) {
+                addLog("❌ Test call failed: ${e.message}")
+            }
         }
 
         clearLogButton.setOnClickListener {
@@ -161,11 +176,25 @@ class MainActivity : AppCompatActivity() {
         try {
             addLog("🔄 Initializing Firebase...")
 
-            // Set database URL explicitly
-            val config = FirebaseDatabase.getInstance().apply {
-                setPersistenceEnabled(true)
+            // Ensure FirebaseApp is initialized before getting database instance
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
             }
-            database = config.reference
+
+            // Set database URL explicitly and handle persistence safely
+            val db = FirebaseDatabase.getInstance(DB_URL)
+            
+            if (!isPersistenceEnabled) {
+                try {
+                    db.setPersistenceEnabled(true)
+                    isPersistenceEnabled = true
+                    addLog("💾 Persistence enabled")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Persistence error (already set?): ${e.message}")
+                }
+            }
+            
+            database = db.reference
 
             connectionText.text = getString(R.string.connection_connected)
             connectionText.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
@@ -180,24 +209,25 @@ class MainActivity : AppCompatActivity() {
             connectionText.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
             addLog("🔴 Firebase error: ${e.message}")
 
-            // Retry after 5 seconds
+            // Retry after 10 seconds to avoid rapid crash loop
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 addLog("🔄 Retrying Firebase connection...")
                 initFirebase()
-            }, 5000)
+            }, 10000)
         }
     }
 
     private fun listenForConfig() {
+        if (!::database.isInitialized) return
         try {
             val configRef = database.child("config")
 
             configListener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     try {
-                        val primary = snapshot.child("primaryNumber").getValue(String::class.java)
-                        val secondary = snapshot.child("secondaryNumber").getValue(String::class.java)
-                        val sim = snapshot.child("gatewaySim").getValue(String::class.java)
+                        val primary = snapshot.child("primaryNumber").value?.toString()
+                        val secondary = snapshot.child("secondaryNumber").value?.toString()
+                        val sim = snapshot.child("gatewaySim").value?.toString()
 
                         primary?.let { primaryNumber = it }
                         secondary?.let { secondaryNumber = it }
@@ -209,42 +239,56 @@ class MainActivity : AppCompatActivity() {
                         }
                         addLog("⚙️ Config updated from Firebase")
                     } catch (e: Exception) {
+                        Log.e(TAG, "Config parse error", e)
                         addLog("⚠️ Config parse error: ${e.message}")
                     }
                 }
 
                 override fun onCancelled(error: DatabaseError) {
+                    Log.e(TAG, "Config read error: ${error.message}")
                     addLog("⚠️ Config read error: ${error.message}")
                 }
             }
 
             configRef.addValueEventListener(configListener!!)
         } catch (e: Exception) {
+            Log.e(TAG, "Config listener error", e)
             addLog("❌ Config listener error: ${e.message}")
         }
     }
 
     private fun listenForOrders() {
+        if (!::database.isInitialized) return
         try {
             val ordersRef = database.child("orders")
 
             ordersListener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     try {
+                        if (!snapshot.exists()) {
+                            addLog("ℹ️ No orders found in database")
+                            return
+                        }
                         for (orderSnapshot in snapshot.children) {
                             val orderId = orderSnapshot.key ?: continue
-                            val status = orderSnapshot.child("status").getValue(String::class.java)
+                            val status = orderSnapshot.child("status").value?.toString()
+                            
+                            // Debug log: har bir buyurtmani nima ekanligini ko'rish uchun
+                            Log.d(TAG, "Order observed: $orderId, Status: $status")
 
-                            if ((status == "NEW") && !processedOrders.contains(orderId)) {
+                            // Agar status NEW bo'lsa yoki bot qabul qilganda boshqa status ishlatsa shuni qo'shamiz
+                            if ((status == "NEW" || status == "pending") && !processedOrders.contains(orderId)) {
                                 processNewOrder(orderId, orderSnapshot)
                             }
                         }
                     } catch (e: Exception) {
+                        Log.e(TAG, "Order parse error", e)
                         addLog("❌ Order parse error: ${e.message}")
                     }
                 }
 
                 override fun onCancelled(error: DatabaseError) {
+                    Log.e(TAG, "Orders Firebase error: ${error.message}")
                     addLog("🔴 Firebase error: ${error.message}")
                     connectionText.text = getString(R.string.connection_disconnected)
                     connectionText.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.holo_red_dark))
@@ -254,24 +298,35 @@ class MainActivity : AppCompatActivity() {
             ordersRef.addValueEventListener(ordersListener!!)
             addLog("👂 Listening for orders...")
         } catch (e: Exception) {
+            Log.e(TAG, "Orders listener error", e)
             addLog("❌ Orders listener error: ${e.message}")
         }
     }
 
     private fun processNewOrder(orderId: String, snapshot: DataSnapshot) {
         try {
-            val items = snapshot.child("items").getValue(String::class.java) ?: "Unknown"
-            val total = snapshot.child("total").getValue(Long::class.java) ?: 0
+            val items = snapshot.child("items").value?.toString() ?: "Unknown"
+            val total = (snapshot.child("total").value as? Number)?.toLong() ?: 0L
             val callNumbers = mutableListOf<String>()
 
             val numbersSnapshot = snapshot.child("callNumbers")
             for (numberSnapshot in numbersSnapshot.children) {
-                val number = numberSnapshot.getValue(String::class.java)
+                val number = numberSnapshot.value?.toString()
                 if (number != null) callNumbers.add(number)
             }
 
-            val orderNumber = snapshot.child("orderNumber").getValue(Int::class.java) ?: orderId.toIntOrNull() ?: 0
-            val customerName = snapshot.child("customerName").getValue(String::class.java) ?: "Unknown"
+            // Agar bazadan raqamlar kelmasa, sozlamadagi raqamlarga qo'ng'iroq qilamiz
+            if (callNumbers.isEmpty()) {
+                callNumbers.add(primaryNumber)
+                if (secondaryNumber != primaryNumber) {
+                    callNumbers.add(secondaryNumber)
+                }
+                addLog("ℹ️ Using default numbers for call")
+            }
+
+            val orderNumberValue = snapshot.child("orderNumber").value
+            val orderNumber = (orderNumberValue as? Number)?.toInt() ?: orderId.toIntOrNull() ?: 0
+            val customerName = snapshot.child("customerName").value?.toString() ?: "Unknown"
 
             addLog("📞 NEW ORDER #$orderNumber!")
             addLog("   Items: $items")
@@ -293,6 +348,7 @@ class MainActivity : AppCompatActivity() {
                 updateOrderStatus(orderId, "NO_NUMBERS")
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Process order error", e)
             addLog("❌ Process order error: ${e.message}")
         }
     }
@@ -337,10 +393,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateOrderStatus(orderId: String, status: String) {
+        if (!::database.isInitialized) return
         try {
             database.child("orders").child(orderId).child("status").setValue(status)
             addLog("📝 Order $orderId → $status")
         } catch (e: Exception) {
+            Log.e(TAG, "Status update failed", e)
             addLog("❌ Status update failed: ${e.message}")
         }
     }
@@ -350,7 +408,9 @@ class MainActivity : AppCompatActivity() {
             val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
             val logMessage = "[$timestamp] $message\n"
             runOnUiThread {
-                logText.append(logMessage)
+                if (::logText.isInitialized) {
+                    logText.append(logMessage)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Log error: ${e.message}")
@@ -364,27 +424,46 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        wakeLock?.let { if (it.isHeld) it.release() }
+        // Don't release WakeLock on pause if we want to keep running in background
+        // But the user asked to handle it safely. 
+        // Typically for a gateway app, we keep it held until onDestroy or stop service.
     }
 
     private fun acquireWakeLock() {
         try {
-            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CafeCallGateway::WakeLock")
-            wakeLock?.acquire(60 * 60 * 1000L)
+            if (wakeLock == null) {
+                val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CafeCallGateway::WakeLock")
+            }
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24 hours
+                addLog("🔋 WakeLock acquired")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "WakeLock error: ${e.message}")
+            Log.e(TAG, "WakeLock error", e)
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         try {
-            ordersListener?.let { database.removeEventListener(it) }
-            configListener?.let { database.removeEventListener(it) }
+            if (::database.isInitialized) {
+                ordersListener?.let { database.removeEventListener(it) }
+                configListener?.let { database.removeEventListener(it) }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Cleanup error: ${e.message}")
+            Log.e(TAG, "Cleanup error", e)
         }
-        wakeLock?.let { if (it.isHeld) it.release() }
+        
+        try {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    addLog("🔋 WakeLock released")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "WakeLock release error", e)
+        }
     }
 }

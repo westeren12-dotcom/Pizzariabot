@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cafe Call Gateway</string>
+    <string name="primary_number_format">Primary: %1$s</string>
+    <string name="secondary_number_format">Secondary: %1$s</string>
+    <string name="last_order_format">Last Order: %1$s</string>
+    <string name="connection_connected">🟢 Firebase Connected</string>
+    <string name="connection_error">🔴 Firebase Error</string>
+    <string name="connection_disconnected">🔴 Disconnected</string>
 </resources>
