@@ -638,8 +638,6 @@ bot.action("confirm_order", async (ctx) => {
     `📍 Hudud: <b>${orderDistrict}</b>`,
     `📞 Telefon: <b>${orderPhone}</b>`,
     ``,
-    `📞 Admin: <b>${adminPhone}</b>`,
-    ``,
     `Tez orada siz bilan bog'lanamiz!`,
   ].join("\n");
 
@@ -648,15 +646,15 @@ bot.action("confirm_order", async (ctx) => {
     await ctx.reply(confirmMsg, {
       parse_mode: "HTML",
       ...Markup.inlineKeyboard([
-        [{ text: "📞 Admin: " + adminPhone, callback_data: "main_menu" }],
+        [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
       ]),
     });
   } catch (err) {
     console.error("Reply error:", err);
     await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
-    await ctx.reply(`✅ Buyurtma tasdiqlandi!\n\n📞 Admin: ${adminPhone}\nTez orada siz bilan bog'lanamiz!`, {
+    await ctx.reply(`✅ Buyurtma tasdiqlandi!\nTez orada siz bilan bog'lanamiz!`, {
       ...Markup.inlineKeyboard([
-        [{ text: "📞 Admin: " + adminPhone, callback_data: "main_menu" }],
+        [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
       ]),
     });
   }
@@ -707,7 +705,12 @@ bot.action(/^admin_accept_(\d+)$/, async (ctx) => {
     await ctx.telegram.sendMessage(
       Number(order.userId),
       `✅ *Buyurtma #${order.orderNumber} qabul qilindi!*\n\nTez orada siz bilan bog'lanamiz.`,
-      { parse_mode: "Markdown" }
+      {
+        parse_mode: "Markdown",
+        ...Markup.inlineKeyboard([
+          [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
+        ]),
+      }
     );
   } catch {}
 
