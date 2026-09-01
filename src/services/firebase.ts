@@ -19,7 +19,10 @@ function initFirebase(): Database | null {
   if (db) return db;
 
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-  const databaseURL = process.env.FIREBASE_DATABASE_URL;
+  const databaseURL = process.env.FIREBASE_DATABASE_URL?.trim();
+
+  console.log("🔍 FIREBASE_SERVICE_ACCOUNT set:", !!serviceAccount, serviceAccount ? `(${serviceAccount.length} chars)` : "(missing)");
+  console.log("🔍 FIREBASE_DATABASE_URL set:", !!databaseURL, databaseURL ? `(${databaseURL})` : "(missing)");
 
   if (!serviceAccount || !databaseURL) {
     console.log("🔥 Firebase not configured — Call Gateway disabled");
