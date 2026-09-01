@@ -503,6 +503,9 @@ bot.action("confirm_order", async (ctx) => {
     return ctx.answerCbQuery("Buyurtma topilmadi!");
   }
 
+  // Answer IMMEDIATELY to prevent timeout
+  await ctx.answerCbQuery("Buyurtma qabul qilindi...");
+
   const orderItem = ctx.session.orderItem || "";
   const orderName = ctx.session.orderName || "";
   const orderDistrict = ctx.session.orderDistrict || "";
@@ -642,7 +645,6 @@ bot.action("confirm_order", async (ctx) => {
   ].join("\n");
 
   try {
-    await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
     await ctx.reply(confirmMsg, {
       parse_mode: "HTML",
       ...Markup.inlineKeyboard([
@@ -651,7 +653,6 @@ bot.action("confirm_order", async (ctx) => {
     });
   } catch (err) {
     console.error("Reply error:", err);
-    await ctx.answerCbQuery("Buyurtma tasdiqlandi!");
     await ctx.reply(`✅ Buyurtma tasdiqlandi!\nTez orada siz bilan bog'lanamiz!`, {
       ...Markup.inlineKeyboard([
         [{ text: "🏠 Asosiy menyu", callback_data: "main_menu" }],
@@ -696,9 +697,12 @@ bot.action(/^admin_accept_(\d+)$/, async (ctx) => {
   const orderId = parseInt(data.replace("admin_accept_", ""));
   if (!orderId) return;
 
+  // Answer IMMEDIATELY
+  await ctx.answerCbQuery("✅ Buyurtma qabul qilindi!");
+
   await db.updateOrderStatus(orderId, "accepted");
   const order = await db.getOrderById(orderId);
-  if (!order) return ctx.answerCbQuery("Buyurtma topilmadi!");
+  if (!order) return;
 
   // Notify customer
   try {
@@ -714,7 +718,6 @@ bot.action(/^admin_accept_(\d+)$/, async (ctx) => {
     );
   } catch {}
 
-  await ctx.answerCbQuery("✅ Buyurtma qabul qilindi!");
   try {
     await ctx.editMessageText(
       `✅ *Buyurtma #${order.orderNumber} qabul qilindi!*\n\nMijozga xabar yuborildi.`,
@@ -732,9 +735,12 @@ bot.action(/^admin_reject_(\d+)$/, async (ctx) => {
   const orderId = parseInt(data.replace("admin_reject_", ""));
   if (!orderId) return;
 
+  // Answer IMMEDIATELY
+  await ctx.answerCbQuery("❌ Buyurtma bekor qilindi!");
+
   await db.updateOrderStatus(orderId, "cancelled");
   const order = await db.getOrderById(orderId);
-  if (!order) return ctx.answerCbQuery("Buyurtma topilmadi!");
+  if (!order) return;
 
   // Notify customer
   try {
@@ -745,7 +751,6 @@ bot.action(/^admin_reject_(\d+)$/, async (ctx) => {
     );
   } catch {}
 
-  await ctx.answerCbQuery("❌ Buyurtma bekor qilindi!");
   try {
     await ctx.editMessageText(
       `❌ *Buyurtma #${order.orderNumber} bekor qilindi.*`,
