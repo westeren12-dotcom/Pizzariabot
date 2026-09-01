@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "231931797050",
+    "firebase_url": "https://pizzaria-cafe-bot-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "pizzaria-cafe-bot",
+    "storage_bucket": "pizzaria-cafe-bot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:231931797050:android:7b914e3ea836b330af1f03",
+        "android_client_info": {
+          "package_name": "com.pizzaria.cafecallgateway"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4M0PQpowQ03_zt38s1Q3pvbLBx3VTKrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
