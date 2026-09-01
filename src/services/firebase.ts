@@ -32,8 +32,15 @@ function initFirebase(): Database | null {
 
   try {
     if (getApps().length === 0) {
-      // Clean JSON string: remove newlines, tabs, extra spaces that may break parsing
-      const cleanJSON = serviceAccount.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+      // Clean JSON: fix newlines inside private_key string
+      // Replace literal newlines with escaped \n, then collapse whitespace
+      let cleanJSON = serviceAccount.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      // Fix private_key field: replace real newlines with \n inside the string value
+      cleanJSON = cleanJSON.replace(/"private_key"\s*:\s*"([^"]*)"/g, (match, key) => {
+        const fixedKey = key.replace(/\n/g, '\\n');
+        return `"private_key": "${fixedKey}"`;
+      });
+      cleanJSON = cleanJSON.replace(/\s+/g, ' ').trim();
       const serviceAccountJSON = JSON.parse(cleanJSON);
       firebaseApp = initializeApp({
         credential: cert(serviceAccountJSON),
